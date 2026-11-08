@@ -17,7 +17,7 @@ from datetime import UTC, datetime
 
 from f1.config.settings import Settings
 from f1.dashboard.loaders import DETAIL_ENDPOINTS
-from f1.domain.models import MeetingRef, SessionRef
+from f1.domain.models import POINTS_KINDS, MeetingRef, SessionKind, SessionRef
 from f1.domain.ports import OpenF1Source
 from f1.ingestion.openf1_client import OpenF1Client
 from f1.pipelines.calendar import load_calendar
@@ -61,19 +61,28 @@ def run_season_bootstrap(
     year: int = BOOTSTRAP_YEAR,
     source_factory: SourceFactory | None = None,
     now: datetime | None = None,
+    kinds: tuple[SessionKind, ...] = POINTS_KINDS,
 ) -> BootstrapResult:
-    """Calendário + resultados das corridas e sprints encerradas de ``year``.
+    """Calendário + resultados das sessões encerradas dos tipos ``kinds``.
 
-    O cliente respeita ``F1_REQUEST_INTERVAL_SECONDS`` entre requisições e faz
-    backoff em ``429``/``5xx``.
+    Considera só fins de semana de GP (meetings com corrida). A partição de
+    resultados de cada meeting passa a conter exatamente esses tipos; para
+    acrescentar tipos, passe a união com os já carregados. O cliente respeita
+    ``F1_REQUEST_INTERVAL_SECONDS`` entre requisições e faz backoff em
+    ``429``/``5xx``.
     """
     reference = now or datetime.now(UTC)
     ctx = _context(settings, "dashboard_season_bootstrap_started", season=year)
     stores = build_stores(settings)
     with _factory(source_factory)(settings) as source:
         calendar = load_calendar(source, stores, ctx, year)
+        gp_weekends = {s.meeting_key for s in calendar.sessions if s.is_race}
         sessions = [
-            s for s in calendar.sessions if s.awards_points and s.is_finished(reference)
+            s
+            for s in calendar.sessions
+            if s.kind in kinds
+            and s.meeting_key in gp_weekends
+            and s.is_finished(reference)
         ]
         metrics = run_results(source, stores, ctx, year, sessions)
     return BootstrapResult(

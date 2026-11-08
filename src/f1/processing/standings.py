@@ -3,17 +3,27 @@
 Entradas são os datasets silver ``meetings``, ``sessions``, ``drivers`` e
 ``session_results`` (ou os datasets de volta da corrida). Pontos vêm da coluna
 ``points`` da OpenF1, que já inclui o ponto da volta mais rápida.
+
+``kinds`` escolhe os tipos de sessão analisados (padrão: corridas e sprints).
+Pontos somam todos os tipos escolhidos; vencedores, vitórias e pódios usam os
+"tipos principais" (``primary_kinds``): a corrida, se escolhida, senão os
+próprios tipos (ex.: só classificação → poles).
 """
 
-from collections.abc import Sequence
+from collections.abc import Collection, Sequence
 from dataclasses import dataclass
 
 import pandas as pd
 
-from f1.domain.models import RACE_SESSION, SPRINT_SESSION
+from f1.domain.models import (
+    POINTS_KINDS,
+    SessionKind,
+    classify_session,
+    primary_kinds,
+)
 
-RACE = "race"
-SPRINT = "sprint"
+RACE = SessionKind.RACE.value
+SPRINT = SessionKind.SPRINT.value
 FALLBACK_COLOUR = "#9CA3AF"
 SLOW_LAP_FACTOR = 1.15
 PODIUM = 3
@@ -29,6 +39,11 @@ class SeasonKpis:
     leader_name: str | None
     leader_acronym: str | None
     leader_points: float
+    events: int = 0  # sessões principais com vencedor
+    events_won: int = 0  # dessas, vencidas por pilotos da seleção
+    filtered: bool = False  # seleção restrita por equipe/piloto
+    primary: tuple[SessionKind, ...] = (SessionKind.RACE,)
+    points_kinds: tuple[SessionKind, ...] = POINTS_KINDS
 
 
 @dataclass(frozen=True)
@@ -48,21 +63,40 @@ def team_colour(value: object) -> str:
     return FALLBACK_COLOUR
 
 
-def points_sessions(sessions: pd.DataFrame) -> pd.DataFrame:
-    """Corridas e sprints não canceladas, em ordem cronológica, com a rodada.
+def classified_sessions(sessions: pd.DataFrame) -> pd.DataFrame:
+    """Sessões de fins de semana de GP, com ``kind`` e ``round``, em ordem.
 
-    A rodada (``round``) numera as corridas principais; a sprint herda a rodada
-    do seu fim de semana.
+    Exclui sessões canceladas, sem categoria e de meetings sem corrida (ex.:
+    testes de pré-temporada). ``round`` numera as corridas principais; as demais
+    sessões herdam a rodada do seu fim de semana.
     """
     cancelled = sessions["is_cancelled"].fillna(False).astype(bool)
-    mask = sessions["session_name"].isin([RACE_SESSION, SPRINT_SESSION]) & ~cancelled
-    df = sessions.loc[mask].sort_values("date_start", kind="stable").copy()
-    df["kind"] = df["session_name"].map({RACE_SESSION: RACE, SPRINT_SESSION: SPRINT})
+    df = sessions.loc[~cancelled].sort_values("date_start", kind="stable").copy()
+    df["kind"] = [
+        k.value if k is not None else None
+        for k in map(classify_session, df["session_name"], df["session_type"])
+    ]
     races = df.loc[df["kind"] == RACE, "meeting_key"].drop_duplicates()
     rounds = {int(key): n for n, key in enumerate(races, start=1)}
     df["round"] = df["meeting_key"].map(rounds).astype("Int64")
+    df = df.loc[df["kind"].notna() & df["round"].notna()]
     columns = ["session_key", "meeting_key", "session_name", "kind", "round"]
     return df[[*columns, "date_start"]].reset_index(drop=True)
+
+
+def points_sessions(
+    sessions: pd.DataFrame, kinds: Sequence[SessionKind] = POINTS_KINDS
+) -> pd.DataFrame:
+    """Sessões dos tipos ``kinds`` (padrão: corridas e sprints), com a rodada."""
+    df = classified_sessions(sessions)
+    return df.loc[df["kind"].isin([k.value for k in kinds])].reset_index(drop=True)
+
+
+def result_kinds(results: pd.DataFrame, sessions: pd.DataFrame) -> set[SessionKind]:
+    """Tipos de sessão que já têm resultados no lake."""
+    keys = set(results["session_key"].dropna().astype(int))
+    df = classified_sessions(sessions)
+    return {SessionKind(k) for k in df.loc[df["session_key"].isin(keys), "kind"]}
 
 
 def driver_acronyms(drivers: pd.DataFrame) -> pd.Series:
@@ -97,42 +131,107 @@ def driver_info(drivers: pd.DataFrame) -> pd.DataFrame:
     return out.drop_duplicates(["session_key", "driver_number"], keep="last")
 
 
+def driver_identity(info: pd.DataFrame) -> pd.Series:
+    """Chave do piloto: o nome (um piloto pode usar números diferentes no ano).
+
+    Ex.: em 2024 Oliver Bearman correu com o #38 (Ferrari) e o #50 (Haas).
+    """
+    number = info["driver_number"].astype("string")
+    name = info["name"].astype("string").str.strip().str.upper()
+    return name.mask(name == "").fillna(number).astype(str)
+
+
+def _numbers_by_identity(info: pd.DataFrame) -> dict[str, frozenset[int]]:
+    groups: dict[str, set[int]] = {}
+    for identity, number in zip(info["identity"], info["driver_number"], strict=True):
+        if pd.notna(number):
+            groups.setdefault(str(identity), set()).add(int(number))
+    return {key: frozenset(numbers) for key, numbers in groups.items()}
+
+
+def driver_numbers(drivers: pd.DataFrame) -> dict[int, frozenset[int]]:
+    """Para cada número de carro, todos os números usados pelo mesmo piloto."""
+    info = driver_info(drivers)
+    info["identity"] = driver_identity(info)
+    by_identity = _numbers_by_identity(info)
+    return {
+        number: by_identity[key] for key in by_identity for number in by_identity[key]
+    }
+
+
 def driver_directory(drivers: pd.DataFrame, sessions: pd.DataFrame) -> pd.DataFrame:
-    """Um registro por piloto, com os dados da sessão mais recente."""
+    """Um registro por piloto, com os dados da sessão mais recente.
+
+    ``driver_number`` é o número mais recente; ``driver_numbers``, todos os
+    números usados pelo piloto na temporada.
+    """
     info = driver_info(drivers).merge(
         sessions[["session_key", "date_start"]], on="session_key", how="left"
     )
+    info["identity"] = driver_identity(info)
+    numbers = {k: tuple(sorted(v)) for k, v in _numbers_by_identity(info).items()}
     info = info.sort_values("date_start", kind="stable", na_position="first")
-    latest = info.groupby("driver_number", sort=False).tail(1)
-    return latest[_DRIVER_COLUMNS[1:]].reset_index(drop=True)
+    latest = info.groupby("identity", sort=False).tail(1).copy()
+    latest["driver_numbers"] = latest["identity"].map(numbers)
+    columns = [*_DRIVER_COLUMNS[1:], "driver_numbers", "identity"]
+    return latest[columns].reset_index(drop=True)
 
 
-def scored_results(results: pd.DataFrame, sessions: pd.DataFrame) -> pd.DataFrame:
-    """Resultados de corridas e sprints com ``kind``, ``round`` e pontos."""
-    scored = results.merge(points_sessions(sessions), on="session_key", how="inner")
+def scored_results(
+    results: pd.DataFrame,
+    sessions: pd.DataFrame,
+    kinds: Sequence[SessionKind] = POINTS_KINDS,
+) -> pd.DataFrame:
+    """Resultados dos tipos ``kinds`` com ``kind``, ``round``, pontos e vitórias.
+
+    ``is_win``/``is_podium`` valem só para os tipos principais (``primary_kinds``).
+    """
+    scored = results.merge(points_sessions(sessions, kinds), on="session_key")
     scored["points"] = scored["points"].astype("Float64").fillna(0.0)
-    in_race = scored["kind"] == RACE
+    primary = [k.value for k in primary_kinds(tuple(kinds))]
+    in_primary = scored["kind"].isin(primary)
     position = scored["position"]
-    scored["is_win"] = (in_race & (position == 1)).fillna(False).astype(bool)
-    is_podium = in_race & (position >= 1) & (position <= PODIUM)
+    scored["is_win"] = (in_primary & (position == 1)).fillna(False).astype(bool)
+    is_podium = in_primary & (position >= 1) & (position <= PODIUM)
     scored["is_podium"] = is_podium.fillna(False).astype(bool)
     return scored
 
 
 def driver_standings(
-    results: pd.DataFrame, sessions: pd.DataFrame, drivers: pd.DataFrame
+    results: pd.DataFrame,
+    sessions: pd.DataFrame,
+    drivers: pd.DataFrame,
+    kinds: Sequence[SessionKind] = POINTS_KINDS,
 ) -> pd.DataFrame:
-    """Classificação de pilotos: pontos (corridas + sprints), vitórias e pódios."""
-    scored = scored_results(results, sessions)
-    totals = scored.groupby("driver_number", as_index=False).agg(
-        points=("points", "sum"), wins=("is_win", "sum"), podiums=("is_podium", "sum")
+    """Classificação de pilotos: pontos dos ``kinds``, vitórias e pódios.
+
+    Uma linha por piloto, mesmo que ele tenha usado mais de um número no ano.
+    """
+    scored = scored_results(results, sessions, kinds)
+    info = driver_info(drivers)
+    info["identity"] = driver_identity(info)
+    scored = scored.merge(
+        info[["session_key", "driver_number", "identity"]],
+        on=["session_key", "driver_number"],
+        how="left",
     )
-    table = totals.merge(
-        driver_directory(drivers, sessions), on="driver_number", how="left"
+    scored["identity"] = scored["identity"].fillna(scored["driver_number"].astype(str))
+    totals = scored.groupby("identity", as_index=False).agg(
+        points=("points", "sum"),
+        wins=("is_win", "sum"),
+        podiums=("is_podium", "sum"),
+        scored_number=("driver_number", "last"),
     )
-    number = table["driver_number"].astype(str)
-    table["acronym"] = table["acronym"].fillna(number)
-    table["name"] = table["name"].fillna(number)
+    directory = driver_directory(drivers, sessions)
+    table = totals.merge(directory, on="identity", how="left")
+    number = table["scored_number"].astype(int)
+    table["driver_number"] = table["driver_number"].fillna(number).astype(int)
+    table["driver_numbers"] = [
+        ns if isinstance(ns, tuple) else (int(n),)
+        for ns, n in zip(table["driver_numbers"], number, strict=True)
+    ]
+    table["acronym"] = table["acronym"].fillna(number.astype(str))
+    table["name"] = table["name"].fillna(number.astype(str))
     table["team"] = table["team"].fillna("—")
     table["colour"] = table["colour"].fillna(FALLBACK_COLOUR)
     table["points"] = table["points"].astype(float)
@@ -144,7 +243,7 @@ def driver_standings(
     ).reset_index(drop=True)
     table.insert(0, "position", range(1, len(table) + 1))
     columns = ["acronym", "name", "team", "colour", "points", "wins", "podiums"]
-    return table[["position", "driver_number", *columns]]
+    return table[["position", "driver_number", *columns, "driver_numbers"]]
 
 
 def race_winners(
@@ -152,12 +251,15 @@ def race_winners(
     sessions: pd.DataFrame,
     meetings: pd.DataFrame,
     drivers: pd.DataFrame,
+    kinds: Sequence[SessionKind] = POINTS_KINDS,
 ) -> pd.DataFrame:
-    """Vencedor de cada corrida principal já disputada, por rodada."""
-    races = points_sessions(sessions)
-    races = races.loc[races["kind"] == RACE]
+    """Vencedor (1º colocado) de cada sessão principal já disputada.
+
+    Com os tipos padrão, são as corridas principais (uma por rodada).
+    """
+    events = points_sessions(sessions, primary_kinds(tuple(kinds)))
     winners = results.loc[results["position"] == 1, ["session_key", "driver_number"]]
-    df = races.merge(winners, on="session_key", how="inner")
+    df = events.merge(winners, on="session_key", how="inner")
     df = df.merge(
         meetings[["meeting_key", "meeting_name", "country_name"]],
         on="meeting_key",
@@ -169,27 +271,52 @@ def race_winners(
     df["acronym"] = df["acronym"].fillna(df["driver_number"].astype(str))
     df["team"] = df["team"].fillna("—")
     df["colour"] = df["colour"].fillna(FALLBACK_COLOUR)
-    df = df.sort_values("round", kind="stable").reset_index(drop=True)
+    df = df.sort_values(["round", "date_start"], kind="stable").reset_index(drop=True)
     columns = ["round", "meeting_key", "session_key", "gp", "date_start"]
-    return df[[*columns, "driver_number", "acronym", "name", "team", "colour"]]
+    driver = ["driver_number", "acronym", "name", "team", "colour"]
+    return df[[*columns, *driver, "session_name", "kind"]]
 
 
 def season_kpis(
-    results: pd.DataFrame, sessions: pd.DataFrame, standings: pd.DataFrame
+    results: pd.DataFrame,
+    sessions: pd.DataFrame,
+    standings: pd.DataFrame,
+    kinds: Sequence[SessionKind] = POINTS_KINDS,
+    allowed: Collection[int] | None = None,
 ) -> SeasonKpis:
-    """Indicadores da temporada a partir das sessões com resultado."""
-    scored = scored_results(results, sessions)
-    kinds = scored.drop_duplicates("session_key")["kind"]
-    winners = scored.loc[scored["is_win"], "driver_number"]
-    has_leader = not standings.empty and float(standings["points"].iloc[0]) > 0
+    """Indicadores da seleção.
+
+    ``standings`` já deve estar filtrada; ``allowed`` (números de piloto)
+    restringe os vencedores contados.
+    """
+    selected = tuple(kinds)
+    scored = scored_results(results, sessions, selected)
+    session_kinds = scored.drop_duplicates("session_key")["kind"]
+    wins = scored.loc[scored["is_win"]]
+    events = int(wins["session_key"].nunique())
+    if allowed is not None:
+        wins = wins.loc[wins["driver_number"].isin(list(allowed))]
+    points_kinds = tuple(k for k in selected if k in POINTS_KINDS)
+    has_leader = (
+        bool(points_kinds)
+        and not standings.empty
+        and float(standings["points"].iloc[0]) > 0
+    )
     leader = standings.iloc[0] if has_leader else None
     return SeasonKpis(
-        races=int((kinds == RACE).sum()),
-        sprints=int((kinds == SPRINT).sum()),
-        distinct_winners=int(winners.nunique()),
+        races=int((session_kinds == RACE).sum()),
+        sprints=int((session_kinds == SPRINT).sum()),
+        distinct_winners=int((standings["wins"] > 0).sum())
+        if not standings.empty
+        else 0,
         leader_name=str(leader["name"]) if leader is not None else None,
         leader_acronym=str(leader["acronym"]) if leader is not None else None,
         leader_points=float(leader["points"]) if leader is not None else 0.0,
+        events=events,
+        events_won=int(wins["session_key"].nunique()),
+        filtered=allowed is not None,
+        primary=primary_kinds(selected),
+        points_kinds=points_kinds,
     )
 
 

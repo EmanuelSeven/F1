@@ -15,7 +15,7 @@ from f1.dashboard.loaders import (
     season_is_loaded,
 )
 from f1.domain.endpoints import Endpoint
-from f1.domain.models import MeetingRef
+from f1.domain.models import MeetingRef, SessionKind
 from f1.ingestion.openf1_client import OpenF1AccessError
 from tests.unit.dashboard.conftest import DeniedClient, StubClient, as_season
 
@@ -95,3 +95,19 @@ def test_race_details_loads_only_the_main_race(settings, openf1_data):
         Endpoint.PIT,
         Endpoint.WEATHER,
     ]
+
+
+def test_season_bootstrap_loads_selected_kinds(settings, openf1_data):
+    stub = StubClient(openf1_data)
+
+    result = run_season_bootstrap(
+        settings,
+        2023,
+        source_factory=lambda _: stub,
+        now=AFTER_SEASON,
+        kinds=(SessionKind.RACE, SessionKind.QUALIFYING),
+    )
+
+    assert result.sessions == 2
+    data = load_season_data(settings.data_dir, 2023)
+    assert sorted(data.results["session_key"].unique()) == [9161, 9165]

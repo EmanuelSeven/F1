@@ -87,4 +87,5 @@ def test_summary_sentence():
         "**Max Verstappen** soma **437** pontos; **1** piloto venceu a **1** "
         "corrida disputada."
     )
-    assert "Ainda não há" in summary_sentence(_kpis(leader_name=None))
+    empty = _kpis(leader_name=None, races=0, distinct_winners=0)
+    assert "Ainda não há" in summary_sentence(empty)

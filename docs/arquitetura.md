@@ -24,7 +24,7 @@ A unidade de trabalho é um **meeting** (fim de semana de GP). A pipeline de tem
 |---|---|---|
 | `domain` | `Endpoint`, `DatasetSpec`, entidades (`MeetingRef`, `SessionRef`, `Partition`, `Filter`) e contratos (`OpenF1Source`, `RawStore`, `DatasetStore`) | nada |
 | `ingestion` | Query string com operadores e cliente HTTP com retry/backoff | `domain`, `config` |
-| `processing` | Normalização tipada, colunas de linhagem e agregações analíticas da temporada (`standings.py`: pontos, vitórias, pódios, vencedores, KPIs) | `domain`, `utils` |
+| `processing` | Normalização tipada, colunas de linhagem e agregações analíticas da temporada (`standings.py`: pontos, vitórias, pódios, vencedores, KPIs; `filters.py`: aplicação dos filtros do dashboard) | `domain`, `utils` |
 | `quality` | Schemas Pandera e separação válidos/rejeitados | `domain` |
 | `storage` | Bronze JSON, silver Parquet e quarentena | `domain` |
 | `pipelines` | Orquestração `calendar` → `meeting` → `season`, `results` (drivers + resultados de várias sessões em lote) e `factory` (composição dos stores) | todas |
@@ -33,7 +33,7 @@ A unidade de trabalho é um **meeting** (fim de semana de GP). A pipeline de tem
 
 O dashboard não contém regra de negócio:
 
-- as agregações ficam em `f1.processing.standings`, como funções puras;
+- as agregações e a aplicação dos filtros ficam em `f1.processing.standings` e `f1.processing.filters`, como funções puras;
 - a leitura do lake fica em `f1.dashboard.loaders`;
 - as cargas da API reaproveitam as pipelines existentes, por meio de `f1.dashboard.bootstrap`;
 - as páginas de `f1.dashboard.views` só compõem a tela.
@@ -52,6 +52,8 @@ As implementações concretas são compostas em dois pontos de entrada: a CLI (`
 - **Erros da API.** `404` é tratado como "sem dados" (lista vazia). `401`/`403` lançam `OpenF1AccessError` sem retry; isso acontece durante sessões ao vivo, quando a OpenF1 bloqueia o acesso gratuito.
 - **Campos depreciados** (`country_code` em drivers, `pit_duration` em pit) não entram no silver.
 - **Resultados em lote.** `run_results` busca `drivers` e `session_result` de várias sessões numa só requisição (`session_key` repetido, até 25 por lote). A temporada inteira de corridas e sprints sai em 2 requisições, e a gravação continua no padrão do meeting: bronze por sessão, silver e quarentena por meeting.
+- **Tipos de sessão.** `classify_session` (domínio) classifica cada sessão em corrida, sprint, classificação ou treino; testes de pré-temporada ficam fora das análises por não terem corrida.
+- **Piloto, não número.** A classificação agrupa por piloto: quem trocou de número no ano (ex.: Bearman, #38 e #50 em 2024) aparece uma vez, com os pontos somados.
 - **Sprints.** Na OpenF1 a sprint tem `session_type="Race"` e `session_name="Sprint"`; `SessionRef.is_race`, `is_sprint` e `awards_points` encapsulam essa regra.
 - **Pontos** vêm de `session_results.points` (coluna adicionada nesta versão), que já inclui o ponto da volta mais rápida; vitórias e pódios contam apenas corridas principais.
 

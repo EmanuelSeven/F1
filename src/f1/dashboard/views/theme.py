@@ -74,6 +74,21 @@ CSS = f"""
     margin: 0.35rem 0 0.25rem 0;
   }}
   .kpi-caption {{ font-size: 0.8rem; opacity: 0.58; }}
+  .f1-brand {{
+    font-size: 1.15rem;
+    font-weight: 800;
+    letter-spacing: 0.04em;
+    margin: 0.2rem 0 1.1rem 0;
+  }}
+  .f1-brand-mark {{ color: #E10600; font-style: italic; }}
+  .f1-brand-sub {{ font-weight: 500; opacity: 0.8; letter-spacing: 0.02em; }}
+  .f1-sidebar-title {{
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    opacity: 0.7;
+    margin: 0.4rem 0 0.3rem 0;
+  }}
 </style>
 """
 

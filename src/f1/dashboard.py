@@ -14,8 +14,13 @@ própria (``mypy src/f1/dashboard.py``).
 
 import streamlit as st
 
+from f1.config.settings import get_settings
 from f1.dashboard.views.lake import render_lake
 from f1.dashboard.views.season import render_season
+from f1.dashboard.views.sidebar import (
+    render_sidebar_filters,
+    render_sidebar_footer,
+)
 from f1.dashboard.views.theme import inject_css, prevent_translation
 
 
@@ -35,7 +40,11 @@ def main() -> None:
         ),
         st.Page(render_lake, title="Data Lake", icon="🗄️", url_path="data-lake"),
     ]
-    st.navigation(pages, position="top").run()
+    navigation = st.navigation(pages, position="top")
+    data_dir = get_settings().data_dir
+    render_sidebar_filters(data_dir)  # comum a todas as páginas
+    navigation.run()
+    render_sidebar_footer(data_dir)
 
 
 if __name__ == "__main__":

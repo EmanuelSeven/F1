@@ -9,7 +9,8 @@ from streamlit.testing.v1 import AppTest
 
 from f1.config.settings import get_settings
 from f1.dashboard.loaders import load_season_data
-from f1.dashboard.views.season import season_options, summary_html, winners_display
+from f1.dashboard.views.season import summary_html, winners_display
+from f1.dashboard.views.sidebar import season_options
 from f1.domain.endpoints import Endpoint
 from f1.ingestion.openf1_client import OpenF1Client
 from f1.processing.standings import SeasonKpis, race_winners
@@ -80,7 +81,7 @@ def test_season_page_is_default_and_loads_2024(data_env, tmp_path, client, openf
         "Corridas + sprints",
     ):
         assert caption in html
-    assert app.selectbox(key="season_year").value == 2024
+    assert app.selectbox(key="filter_season").value == 2024
     assert any('setAttribute("translate", "no")' in h.value for h in app.html)
     winners = app.dataframe[0].value
     assert winners["Vencedor"].tolist() == ["SAI"]
@@ -100,7 +101,7 @@ def test_selecting_another_season_loads_it(data_env, tmp_path, client, openf1_da
     app = _dashboard(data_env, tmp_path / "lake")
     assert "Ainda não há resultados de corridas para 2024" in app.info[0].value
 
-    app.selectbox(key="season_year").set_value(2023).run()
+    app.selectbox(key="filter_season").set_value(2023).run()
 
     assert not app.exception
     assert "Fórmula 1 · temporada 2023" in _html(app)

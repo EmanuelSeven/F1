@@ -92,9 +92,29 @@ poetry run task dashboard
 
 Abre em <http://localhost:8501> com duas páginas, na barra de navegação do topo.
 
+### Barra lateral (comum a todas as páginas)
+
+No topo fica a marca **FORMULA 1 · Analytics**. A seção **Filtros** traz:
+
+| Filtro | Efeito |
+|---|---|
+| **Temporada** | 2023 até o ano atual (padrão 2024). Também fica na URL (`?ano=2024`), para compartilhar o link |
+| **Tipo de sessão** | Corrida, Sprint, Classificação, Treino livre (padrão: Corrida + Sprint). Os pontos somam os tipos marcados (classificação e treinos não valem pontos). Os vencedores, as vitórias e os pódios usam as corridas, se marcadas; senão, os tipos marcados (ex.: só Classificação mostra as poles) |
+| **Grande Prêmio** | "Todos" ou um GP do ano. Não filtra os números: destaca a linha na tabela de vencedores e abre os detalhes daquele GP |
+| **Equipe e piloto** | Restringe gráfico, tabela, KPIs e frase aos pilotos escolhidos. A lista de pilotos depende das equipes marcadas, e os dois filtros se combinam (E) |
+| **Limpar filtros** | Volta tudo ao padrão, menos a temporada |
+
+Os filtros ficam em `st.session_state`, então continuam valendo ao trocar de página.
+
+Ao marcar Classificação ou Treino livre, os resultados dessas sessões são baixados sob demanda, junto com os tipos já carregados.
+
+No rodapé aparece "Dados: OpenF1 · última atualização {data}", com a data da ingestão mais recente no lake.
+
+Um piloto que usou mais de um número no ano aparece uma única vez, com os pontos somados. Por exemplo, Oliver Bearman em 2024: #38 pela Ferrari e #50 pela Haas.
+
 ### Temporada (página principal)
 
-1. **Cabeçalho:** "Fórmula 1 · temporada {ano}" e o seletor **Temporada** (2023 até o ano atual; padrão 2024).
+1. **Cabeçalho:** "Fórmula 1 · temporada {ano}" (o ano vem da barra lateral).
 2. **Frase-resumo** gerada dos dados, por exemplo: "**Max Verstappen** soma **437** pontos; **7** pilotos diferentes venceram as **24** corridas."
 3. **Quatro KPIs:** corridas, sprints, vencedores diferentes (só corridas) e pontos do líder (corridas + sprints).
 4. **Temporada:** à esquerda, *Pontos por piloto* (barras na cor da equipe; o tooltip mostra vitórias e pódios); à direita, *Vencedores por corrida* (rodada, GP, data, vencedor e equipe). Pontos vêm de `session_results.points`, que já inclui o ponto da volta mais rápida.

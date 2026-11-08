@@ -1,13 +1,13 @@
 """Página "Temporada": painel analítico de uma temporada de F1.
 
-Leitura e agregação ficam em ``f1.dashboard.loaders`` e
-``f1.processing.standings``; cargas da API em ``f1.dashboard.bootstrap``. Este
-módulo só compõe a tela.
+Os filtros vêm da barra lateral (``f1.dashboard.views.sidebar``); a aplicação
+deles está em ``f1.processing.filters``; leituras e cargas em
+``f1.dashboard.views.data``. Este módulo só compõe a tela.
 """
 
 import re
-from collections.abc import Callable, Sequence
-from datetime import UTC, datetime
+from collections.abc import Sequence
+from datetime import datetime
 from html import escape
 from pathlib import Path
 
@@ -15,22 +15,14 @@ import pandas as pd
 import streamlit as st
 
 from f1.config.settings import get_settings
-from f1.dashboard.bootstrap import (
-    BOOTSTRAP_YEAR,
-    FIRST_SEASON,
-    BootstrapResult,
-    run_race_details,
-    run_season_bootstrap,
-)
-from f1.dashboard.loaders import (
-    RaceDetails,
-    SeasonData,
-    load_race_details,
-    load_season_data,
-    race_details_loaded,
-    season_is_loaded,
-)
+from f1.dashboard.loaders import RaceDetails, SeasonData, race_details_loaded
 from f1.dashboard.views import charts
+from f1.dashboard.views.data import (
+    bootstrap_race,
+    race_details,
+    season_data,
+    try_load,
+)
 from f1.dashboard.views.formatting import (
     format_day_month,
     format_lap,
@@ -39,29 +31,31 @@ from f1.dashboard.views.formatting import (
     format_seconds,
     format_status,
     format_temperature,
+    points_caption,
+    points_subtitle,
+    session_label,
     summary_sentence,
+    winners_caption,
 )
+from f1.dashboard.views.sidebar import current_filters
 from f1.dashboard.views.theme import kpi_card, section
-from f1.domain.models import MeetingRef
-from f1.ingestion.openf1_client import OpenF1AccessError, OpenF1Error
+from f1.domain.models import SessionKind
+from f1.processing.filters import SeasonFilter, SeasonView, season_view
 from f1.processing.standings import (
+    RACE,
     SeasonKpis,
-    driver_standings,
     lap_times,
     pit_stops,
     race_classification,
-    race_winners,
-    season_kpis,
     session_weather,
     tyre_stints,
     weather_summary,
 )
-from f1.quality.validation import DataQualityError
 
-CACHE_TTL_SECONDS = 300
 ROW_HEIGHT = 35
 SQUARE = "■"
 TEAM_COLUMN = "Equipe"
+HIGHLIGHT_STYLE = "background-color: rgba(225, 6, 0, 0.22)"
 PLOT_CONFIG = {"displayModeBar": False}
 DETAIL_TABS = (
     "Resultado final",
@@ -70,74 +64,9 @@ DETAIL_TABS = (
     "Pit stops",
     "Clima",
 )
-ACCESS_DENIED_MESSAGE = (
-    "A OpenF1 está temporariamente indisponível para acesso gratuito "
-    "(normalmente porque há uma sessão de F1 ao vivo). Os dados já baixados "
-    "continuam disponíveis; tente de novo quando a sessão terminar — basta "
-    "recarregar a página."
-)
-QUALITY_ERROR_MESSAGE = (
-    "Os dados recebidos da OpenF1 não passaram na validação de qualidade e não "
-    "foram publicados (os registros rejeitados estão na quarentena do data lake)."
-)
-API_ERROR_MESSAGE = (
-    "Não foi possível baixar dados da OpenF1 agora. Verifique sua conexão e "
-    "recarregue a página."
-)
-
-
-# --- cache ---------------------------------------------------------------
-
-
-@st.cache_data(ttl=CACHE_TTL_SECONDS, show_spinner=False)
-def season_data(data_dir: Path, year: int) -> SeasonData:
-    return load_season_data(data_dir, year)
-
-
-@st.cache_data(ttl=CACHE_TTL_SECONDS, show_spinner=False)
-def race_details(data_dir: Path, year: int, meeting_key: int) -> RaceDetails:
-    return load_race_details(data_dir, year, meeting_key)
-
-
-@st.cache_resource(show_spinner="Carregando dados da OpenF1...")
-def bootstrap_season(data_dir: Path, year: int) -> BootstrapResult:
-    """Carga da temporada, uma vez por processo; falhas não ficam em cache."""
-    result = run_season_bootstrap(get_settings(), year)
-    season_data.clear()
-    return result
-
-
-@st.cache_resource(show_spinner="Baixando voltas, pneus, pit stops e clima...")
-def bootstrap_race(data_dir: Path, year: int, meeting_key: int) -> BootstrapResult:
-    """Detalhes de uma corrida, uma vez por processo; falhas não ficam em cache."""
-    meeting = MeetingRef(meeting_key=meeting_key, year=year, name="")
-    result = run_race_details(get_settings(), meeting)
-    race_details.clear()
-    return result
-
-
-def _try_load(loader: Callable[..., BootstrapResult], *args: object) -> bool:
-    """Executa uma carga da API; em falha, mostra mensagem amigável."""
-    try:
-        loader(*args)
-    except OpenF1AccessError:
-        st.warning(ACCESS_DENIED_MESSAGE)
-        return False
-    except OpenF1Error:
-        st.error(API_ERROR_MESSAGE)
-        return False
-    except DataQualityError:
-        st.error(QUALITY_ERROR_MESSAGE)
-        return False
-    return True
 
 
 # --- tabelas de exibição (puras) -----------------------------------------
-
-
-def season_options(now: datetime) -> list[int]:
-    """Temporadas disponíveis no seletor, da mais recente para a mais antiga."""
-    return list(range(now.year, FIRST_SEASON - 1, -1))
 
 
 def summary_html(kpis: SeasonKpis) -> str:
@@ -151,16 +80,19 @@ def team_label(team: object) -> str:
     return f"{SQUARE} {team}"
 
 
-def winners_display(winners: pd.DataFrame) -> pd.DataFrame:
-    return pd.DataFrame(
-        {
-            "Rod.": winners["round"].astype("Int64"),
-            "GP": winners["gp"],
-            "Data": [format_day_month(d) for d in winners["date_start"]],
-            "Vencedor": winners["acronym"],
-            "Equipe": [team_label(t) for t in winners["team"]],
-        }
-    )
+def winners_display(
+    winners: pd.DataFrame, *, with_session: bool = False
+) -> pd.DataFrame:
+    columns: dict[str, object] = {
+        "Rod.": winners["round"].astype("Int64"),
+        "GP": winners["gp"],
+    }
+    if with_session:
+        columns["Sessão"] = [session_label(n) for n in winners["session_name"]]
+    columns["Data"] = [format_day_month(d) for d in winners["date_start"]]
+    columns["Vencedor"] = winners["acronym"]
+    columns[TEAM_COLUMN] = [team_label(t) for t in winners["team"]]
+    return pd.DataFrame(columns)
 
 
 def classification_display(classification: pd.DataFrame) -> pd.DataFrame:
@@ -173,7 +105,7 @@ def classification_display(classification: pd.DataFrame) -> pd.DataFrame:
             ],
             "Piloto": classification["acronym"],
             "Nome": classification["name"],
-            "Equipe": [team_label(t) for t in classification["team"]],
+            TEAM_COLUMN: [team_label(t) for t in classification["team"]],
             "Voltas": classification["number_of_laps"],
             "Tempo / diferença": [
                 format_result_time(r["position"], r["duration"], r["gap_to_leader"])
@@ -193,26 +125,35 @@ def pit_stops_display(stops: pd.DataFrame) -> pd.DataFrame:
         {
             "Volta": stops["lap_number"],
             "Piloto": stops["acronym"],
-            "Equipe": [team_label(t) for t in stops["team"]],
+            TEAM_COLUMN: [team_label(t) for t in stops["team"]],
             "Parada (s)": [format_seconds(v) for v in stops["stop_duration"]],
             "Pit lane (s)": [format_seconds(v) for v in stops["lane_duration"]],
         }
     )
 
 
+def table_styles(
+    display: pd.DataFrame, colours: Sequence[str], highlight: Sequence[int] = ()
+) -> pd.DataFrame:
+    """CSS por célula: cor da equipe na coluna ``Equipe`` e linhas em destaque."""
+    styles = pd.DataFrame("", index=display.index, columns=display.columns)
+    if TEAM_COLUMN in styles.columns:
+        styles[TEAM_COLUMN] = [f"color: {c}" for c in colours]
+    for row in highlight:
+        styles.iloc[row] = [
+            f"{css}; {HIGHLIGHT_STYLE}" if css else HIGHLIGHT_STYLE
+            for css in styles.iloc[row]
+        ]
+    return styles
+
+
+def selection_key(year: int, filt: SeasonFilter) -> str:
+    """Chave da tabela de vencedores: muda quando as linhas mudam."""
+    parts = [str(year), *filt.kinds, *filt.teams, *map(str, filt.drivers)]
+    return "winners_" + "_".join(re.sub(r"\W+", "", p) for p in parts)
+
+
 # --- componentes -----------------------------------------------------------
-
-
-def _coloured(
-    display: pd.DataFrame, colours: Sequence[str]
-) -> "pd.io.formats.style.Styler":
-    """Pinta a coluna ``Equipe`` (quadradinho + nome) com a cor de cada equipe.
-
-    O ``st.dataframe`` só aceita estilo por célula, por isso a célula inteira
-    recebe a cor.
-    """
-    styles = [f"color: {c}" for c in colours]
-    return display.style.apply(lambda _col: styles, subset=[TEAM_COLUMN])
 
 
 def _table(  # noqa: PLR0913 - opções de exibição explícitas
@@ -221,84 +162,93 @@ def _table(  # noqa: PLR0913 - opções de exibição explícitas
     *,
     key: str,
     selectable: bool = False,
+    highlight: Sequence[int] = (),
     max_rows: int = 25,
     column_config: dict[str, object] | None = None,
 ) -> list[int]:
-    """Tabela com a equipe colorida; retorna as linhas selecionadas."""
-    config: dict[str, object] = dict(column_config or {})
+    """Tabela com a equipe colorida; retorna as linhas selecionadas.
+
+    O ``st.dataframe`` só aceita estilo por célula, por isso a célula ``Equipe``
+    inteira (quadradinho + nome) recebe a cor.
+    """
+    styles = table_styles(display, colours, highlight)
+    styled = display.style.apply(lambda _df: styles, axis=None)
     height = ROW_HEIGHT * (min(len(display), max_rows) + 1) + 3
     options: dict[str, object] = {
         "hide_index": True,
         "width": "stretch",
         "height": height,
         "key": key,
-        "column_config": config,
+        "column_config": dict(column_config or {}),
     }
     if not selectable:
-        st.dataframe(_coloured(display, colours), **options)  # type: ignore[call-overload]
+        st.dataframe(styled, **options)  # type: ignore[call-overload]
         return []
     event = st.dataframe(  # type: ignore[call-overload]
-        _coloured(display, colours),
-        on_select="rerun",
-        selection_mode="single-row",
-        **options,
+        styled, on_select="rerun", selection_mode="single-row", **options
     )
     selection = getattr(event, "selection", None)
     return [int(r) for r in getattr(selection, "rows", [])]
 
 
-def _header() -> int:
-    title_col, select_col = st.columns([5, 1], vertical_alignment="bottom")
-    options = season_options(datetime.now(UTC))
-    default = options.index(BOOTSTRAP_YEAR) if BOOTSTRAP_YEAR in options else 0
-    with select_col:
-        year = int(st.selectbox("Temporada", options, index=default, key="season_year"))
-    with title_col:
-        title = f"Fórmula 1 · temporada {year}"
-        st.markdown(f'<div class="f1-title">{title}</div>', unsafe_allow_html=True)
-    return year
+def _header(year: int) -> None:
+    title = f"Fórmula 1 · temporada {year}"
+    st.markdown(f'<div class="f1-title">{title}</div>', unsafe_allow_html=True)
 
 
-def _kpi_cards(kpis: SeasonKpis) -> None:
+def _kpi_cards(kpis: SeasonKpis, kinds: tuple[SessionKind, ...]) -> None:
+    races = str(kpis.races) if SessionKind.RACE in kinds else "—"
+    sprints = str(kpis.sprints) if SessionKind.SPRINT in kinds else "—"
+    leader = format_points(kpis.leader_points) if kpis.points_kinds else "—"
     cards = (
-        ("Corridas", str(kpis.races), "Grandes Prêmios da temporada"),
-        ("Sprints", str(kpis.sprints), "Corridas curtas de sábado"),
-        (
-            "Vencedores diferentes",
-            str(kpis.distinct_winners),
-            "Em corridas, sem contar sprints",
-        ),
-        ("Pontos do líder", format_points(kpis.leader_points), "Corridas + sprints"),
+        ("Corridas", races, "Grandes Prêmios da temporada"),
+        ("Sprints", sprints, "Corridas curtas de sábado"),
+        ("Vencedores diferentes", str(kpis.distinct_winners), winners_caption(kpis)),
+        ("Pontos do líder", leader, points_caption(kpis.points_kinds)),
     )
     for column, (label, value, caption) in zip(st.columns(4), cards, strict=True):
         column.markdown(kpi_card(label, value, caption), unsafe_allow_html=True)
 
 
-def _season_section(
-    standings: pd.DataFrame, winners: pd.DataFrame, year: int
-) -> pd.Series | None:
+def _points_column(view: SeasonView, year: int) -> None:
+    st.markdown("#### Pontos por piloto")
+    st.caption(points_subtitle(view.kpis.points_kinds))
+    if not view.kpis.points_kinds:
+        st.info("Classificação e treinos não valem pontos: marque Corrida ou Sprint.")
+    elif view.standings.empty:
+        st.info("Nenhum piloto corresponde aos filtros.")
+    else:
+        st.plotly_chart(
+            charts.points_bar(view.standings), config=PLOT_CONFIG, key=f"points_{year}"
+        )
+
+
+def _winners_column(view: SeasonView, year: int) -> pd.Series | None:
+    by_race = view.kpis.primary == (SessionKind.RACE,)
+    noun = "corrida" if by_race else "sessão"
+    st.markdown(f"#### Vencedores por {noun}")
+    st.caption(f"Clique em uma {noun} para ver os detalhes abaixo.")
+    if view.winners.empty:
+        st.info("Nenhuma vitória dos pilotos filtrados.")
+        return None
+    rows = _table(
+        winners_display(view.winners, with_session=not by_race),
+        view.winners["colour"].tolist(),
+        key=selection_key(year, view.filter),
+        selectable=True,
+        highlight=view.highlighted_rows,
+        column_config={"Rod.": st.column_config.NumberColumn(width=56)},
+    )
+    return view.winners.iloc[rows[0]] if rows else None
+
+
+def _season_section(view: SeasonView, year: int) -> pd.Series | None:
     section("Temporada")
     left, right = st.columns([1.05, 1], gap="large")
     with left:
-        st.markdown("#### Pontos por piloto")
-        st.caption(
-            "Soma dos pontos de corridas e sprints "
-            "(inclui o ponto da volta mais rápida)."
-        )
-        st.plotly_chart(
-            charts.points_bar(standings), config=PLOT_CONFIG, key=f"points_{year}"
-        )
+        _points_column(view, year)
     with right:
-        st.markdown("#### Vencedores por corrida")
-        st.caption("Clique em uma corrida para ver os detalhes abaixo.")
-        rows = _table(
-            winners_display(winners),
-            winners["colour"].tolist(),
-            key=f"winners_{year}",
-            selectable=True,
-            column_config={"Rod.": st.column_config.NumberColumn(width=56)},
-        )
-    return winners.iloc[rows[0]] if rows else None
+        return _winners_column(view, year)
 
 
 # --- detalhes da corrida ------------------------------------------------
@@ -361,7 +311,7 @@ def _pits_tab(details: RaceDetails, data: SeasonData, session_key: int) -> None:
     if not timed.empty:
         fastest = timed.loc[timed["stop_duration"].idxmin()]
         st.caption(
-            f"Parada mais rápida: **{float(fastest['stop_duration']):.1f} s** "
+            f"Parada mais rápida: **{format_seconds(fastest['stop_duration'])} s** "
             f"({fastest['acronym']}, volta {int(fastest['lap_number'])}) · "
             f"{len(stops)} paradas no total."
         )
@@ -399,27 +349,38 @@ def _weather_tab(details: RaceDetails, session_key: int) -> None:
 def render_race_details(
     data_dir: Path, year: int, race: pd.Series, data: SeasonData
 ) -> None:
-    """Detalhes da corrida selecionada: resultado, voltas, pneus, pits e clima."""
+    """Detalhes da sessão escolhida.
+
+    Corridas principais têm resultado, voltas, pneus, pit stops e clima; as
+    demais sessões mostram só o resultado.
+    """
     session_key = int(race["session_key"])
     meeting_key = int(race["meeting_key"])
+    is_race = str(race.get("kind", RACE)) == RACE
     date = race["date_start"]
     when = date.strftime("%d/%m/%Y") if isinstance(date, datetime) else "—"
-    section(
-        f"Rodada {int(race['round'])} · {race['gp']}",
-        f"{when} · vencedor: {race['name']} ({race['team']})",
-    )
+    title = f"Rodada {int(race['round'])} · {race['gp']}"
+    if not is_race:
+        title += f" · {session_label(race.get('session_name', ''))}"
+    section(title, f"{when} · vencedor: {race['name']} ({race['team']})")
     classification = race_classification(data.results, data.drivers, session_key)
-    order = classification["acronym"].tolist()
-    tabs = st.tabs(list(DETAIL_TABS))
+    tabs = st.tabs(list(DETAIL_TABS) if is_race else [DETAIL_TABS[0]])
     with tabs[0]:
         _table(
             classification_display(classification),
             classification["colour"].tolist(),
             key=f"result_{session_key}",
         )
+    if not is_race:
+        st.caption(
+            "Tempos de volta, pneus, pit stops e clima estão disponíveis só para "
+            "corridas principais."
+        )
+        return
     if not race_details_loaded(data_dir, year, meeting_key):
-        _try_load(bootstrap_race, data_dir, year, meeting_key)
+        try_load(bootstrap_race, data_dir, year, meeting_key)
     details = race_details(data_dir, year, meeting_key)
+    order = classification["acronym"].tolist()
     with tabs[1]:
         _laps_tab(details, data, session_key, order)
     with tabs[2]:
@@ -431,22 +392,27 @@ def render_race_details(
 
 
 def render_season() -> None:
-    """Conteúdo da página "Temporada"."""
+    """Conteúdo da página "Temporada" (respeita os filtros da barra lateral)."""
     data_dir = get_settings().data_dir
-    year = _header()
-    if not season_is_loaded(data_dir, year):
-        _try_load(bootstrap_season, data_dir, year)
+    filters = current_filters()
+    year = filters.year
+    _header(year)
+    if not filters.season.kinds:
+        st.info("Escolha ao menos um tipo de sessão na barra lateral.")
+        return
     data = season_data(data_dir, year)
-    standings = driver_standings(data.results, data.sessions, data.drivers)
-    if standings.empty:
+    view = season_view(
+        data.results, data.sessions, data.meetings, data.drivers, filters.season
+    )
+    if view.all_winners.empty and view.standings.empty:
         st.info(f"Ainda não há resultados de corridas para {year}.")
         return
-    winners = race_winners(data.results, data.sessions, data.meetings, data.drivers)
-    kpis = season_kpis(data.results, data.sessions, standings)
     st.markdown(
-        f'<div class="f1-summary">{summary_html(kpis)}</div>', unsafe_allow_html=True
+        f'<div class="f1-summary">{summary_html(view.kpis)}</div>',
+        unsafe_allow_html=True,
     )
-    _kpi_cards(kpis)
-    race = _season_section(standings, winners, year)
-    if race is not None:
-        render_race_details(data_dir, year, race, data)
+    _kpi_cards(view.kpis, filters.season.kinds)
+    selected = _season_section(view, year)
+    target = selected if selected is not None else view.focus_row()
+    if target is not None:
+        render_race_details(data_dir, year, target, data)

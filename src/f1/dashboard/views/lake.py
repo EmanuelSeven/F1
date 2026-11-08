@@ -1,7 +1,6 @@
 """Página "Data Lake": estado das camadas bronze, silver e quarentena."""
 
 from datetime import datetime
-from pathlib import Path
 
 import streamlit as st
 
@@ -13,15 +12,8 @@ from f1.dashboard.loaders import (
     datasets_table,
     is_lake_empty,
     layers_table,
-    load_platform_summary,
 )
-
-CACHE_TTL_SECONDS = 60
-
-
-@st.cache_data(ttl=CACHE_TTL_SECONDS, show_spinner="Lendo o data lake...")
-def cached_summary(data_dir: Path) -> PlatformSummary:
-    return load_platform_summary(data_dir)
+from f1.dashboard.views.data import lake_summary
 
 
 def _format_datetime(value: datetime | None) -> str:
@@ -60,8 +52,8 @@ def render_lake() -> None:
 
     data_dir = get_settings().data_dir
     if st.button("Recarregar dados"):
-        cached_summary.clear()
-    summary = cached_summary(data_dir)
+        lake_summary.clear()
+    summary = lake_summary(data_dir)
 
     if is_lake_empty(data_dir):
         st.info(

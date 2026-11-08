@@ -8,6 +8,8 @@ src/f1/
 │   ├── loaders.py              # Leitura do lake (resumo, temporada, corrida)
 │   ├── bootstrap.py            # Cargas sob demanda (temporada, detalhes)
 │   └── views/
+│       ├── sidebar.py          # Barra lateral: marca, filtros e rodapé
+│       ├── data.py             # Leituras em cache e cargas sob demanda
 │       ├── season.py           # Página "Temporada" (principal)
 │       ├── lake.py             # Página "Data Lake"
 │       ├── charts.py           # Gráficos Plotly (DataFrame → Figure)
@@ -24,7 +26,8 @@ src/f1/
 ├── processing/
 │   ├── normalize.py            # Colunas declaradas por dataset + casts
 │   ├── lineage.py              # _run_id, _ingested_at, _source
-│   └── standings.py            # Pontos, vitórias, pódios, vencedores, KPIs
+│   ├── standings.py            # Pontos, vitórias, pódios, vencedores, KPIs
+│   └── filters.py              # SeasonFilter e aplicação dos filtros
 ├── quality/
 │   ├── schemas.py              # Um DataFrameSchema Pandera por dataset
 │   └── validation.py           # validate() → ValidationResult / DataQualityError

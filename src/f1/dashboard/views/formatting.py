@@ -6,6 +6,7 @@ from datetime import datetime
 
 import pandas as pd
 
+from f1.domain.models import POINTS_KINDS, SessionKind
 from f1.processing.standings import SeasonKpis
 
 _LAPS_BEHIND = re.compile(r"^\+?(\d+)\s*LAPS?$", re.IGNORECASE)
@@ -100,15 +101,105 @@ def format_temperature(value: float | None) -> str:
     )
 
 
+KIND_LABELS: dict[SessionKind, str] = {
+    SessionKind.RACE: "Corrida",
+    SessionKind.SPRINT: "Sprint",
+    SessionKind.QUALIFYING: "Classificação",
+    SessionKind.PRACTICE: "Treino livre",
+}
+_PLURALS: dict[SessionKind, tuple[str, str]] = {
+    SessionKind.RACE: ("corrida", "corridas"),
+    SessionKind.SPRINT: ("sprint", "sprints"),
+    SessionKind.QUALIFYING: ("classificação", "classificações"),
+    SessionKind.PRACTICE: ("sessão de treino", "sessões de treino"),
+}
+_SESSION_NAMES: dict[str, str] = {
+    "Race": "Corrida",
+    "Sprint": "Sprint",
+    "Qualifying": "Classificação",
+    "Sprint Qualifying": "Classificação sprint",
+    "Sprint Shootout": "Classificação sprint",
+    "Practice 1": "Treino livre 1",
+    "Practice 2": "Treino livre 2",
+    "Practice 3": "Treino livre 3",
+}
+
+
+def session_label(session_name: object) -> str:
+    """Nome da sessão em português (``"Practice 1"`` → ``"Treino livre 1"``)."""
+    name = str(session_name)
+    return _SESSION_NAMES.get(name, name)
+
+
+def events_noun(primary: tuple[SessionKind, ...], count: int) -> str:
+    """Substantivo para as sessões principais (``corridas``, ``sprints``...)."""
+    singular, plural = (
+        _PLURALS[primary[0]] if len(primary) == 1 else ("sessão", "sessões")
+    )
+    return singular if count == 1 else plural
+
+
+def points_caption(points_kinds: tuple[SessionKind, ...]) -> str:
+    """Legenda do KPI "Pontos do líder" conforme os tipos selecionados."""
+    if set(points_kinds) == set(POINTS_KINDS):
+        return "Corridas + sprints"
+    if points_kinds == (SessionKind.RACE,):
+        return "Só corridas"
+    if points_kinds == (SessionKind.SPRINT,):
+        return "Só sprints"
+    return "Os tipos selecionados não valem pontos"
+
+
+def points_subtitle(points_kinds: tuple[SessionKind, ...]) -> str:
+    """Subtítulo do gráfico "Pontos por piloto"."""
+    origin = {
+        frozenset(POINTS_KINDS): "corridas e sprints",
+        frozenset({SessionKind.RACE}): "corridas",
+        frozenset({SessionKind.SPRINT}): "sprints",
+    }.get(frozenset(points_kinds), "corridas e sprints")
+    return f"Soma dos pontos de {origin} (inclui o ponto da volta mais rápida)."
+
+
+def winners_caption(kpis: SeasonKpis) -> str:
+    """Legenda do KPI "Vencedores diferentes"."""
+    if kpis.primary == (SessionKind.RACE,):
+        text = "Em corridas, sem contar sprints"
+    else:
+        text = "Em " + events_noun(kpis.primary, 2)
+    return f"{text} · pilotos filtrados" if kpis.filtered else text
+
+
 def summary_sentence(kpis: SeasonKpis) -> str:
-    """Frase-resumo da temporada em Markdown, com destaques em negrito."""
-    if kpis.leader_name is None:
-        return "Ainda não há resultados de corridas nesta temporada."
+    """Frase-resumo da seleção em Markdown, com destaques em negrito."""
+    count = kpis.events or kpis.races
     winners = kpis.distinct_winners
-    races = kpis.races
+    noun = events_noun(kpis.primary, count)
     points = format_points(kpis.leader_points)
-    leader = f"**{kpis.leader_name}** soma **{points}** pontos"
-    who = "piloto venceu" if winners == 1 else "pilotos diferentes venceram"
-    if races == 1:
-        return f"{leader}; **{winners}** {who} a **1** corrida disputada."
-    return f"{leader}; **{winners}** {who} as **{races}** corridas."
+    if kpis.filtered:
+        return _filtered_sentence(kpis, count, noun, points)
+    if kpis.leader_name is not None:
+        leader = f"**{kpis.leader_name}** soma **{points}** pontos"
+        who = "piloto venceu" if winners == 1 else "pilotos diferentes venceram"
+        if count == 1:
+            return f"{leader}; **{winners}** {who} a **1** {noun} disputada."
+        return f"{leader}; **{winners}** {who} as **{count}** {noun}."
+    if count:
+        who = "piloto terminou" if winners == 1 else "pilotos diferentes terminaram"
+        return f"**{winners}** {who} em 1º nas **{count}** {noun} disputadas."
+    return "Ainda não há resultados de corridas nesta temporada."
+
+
+def _filtered_sentence(kpis: SeasonKpis, count: int, noun: str, points: str) -> str:
+    winners = kpis.distinct_winners
+    if winners == 0:
+        tail = f"nenhum piloto da seleção venceu entre as **{count}** {noun}"
+    else:
+        who = (
+            "piloto da seleção venceu"
+            if winners == 1
+            else "pilotos da seleção venceram"
+        )
+        tail = f"**{winners}** {who} **{kpis.events_won}** de **{count}** {noun}"
+    if kpis.leader_name is None:
+        return tail[0].upper() + tail[1:] + "."
+    return f"**{kpis.leader_name}** lidera a seleção com **{points}** pontos; {tail}."

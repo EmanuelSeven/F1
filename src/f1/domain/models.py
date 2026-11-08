@@ -88,6 +88,43 @@ class MeetingRef:
 
 RACE_SESSION = "Race"
 SPRINT_SESSION = "Sprint"
+QUALIFYING_TYPE = "Qualifying"
+PRACTICE_TYPE = "Practice"
+
+
+class SessionKind(StrEnum):
+    """Categorias de sessão usadas nas análises da temporada."""
+
+    RACE = "race"
+    SPRINT = "sprint"
+    QUALIFYING = "qualifying"
+    PRACTICE = "practice"
+
+
+POINTS_KINDS: tuple[SessionKind, ...] = (SessionKind.RACE, SessionKind.SPRINT)
+
+
+def classify_session(session_name: object, session_type: object) -> SessionKind | None:
+    """Categoria de uma sessão da OpenF1 (``None`` se não se encaixar).
+
+    Na OpenF1 a sprint tem ``session_type="Race"`` e ``session_name="Sprint"``;
+    a classificação da sprint (``Sprint Qualifying``/``Sprint Shootout``) tem
+    ``session_type="Qualifying"``.
+    """
+    if session_name == RACE_SESSION:
+        return SessionKind.RACE
+    if session_name == SPRINT_SESSION:
+        return SessionKind.SPRINT
+    if session_type == QUALIFYING_TYPE:
+        return SessionKind.QUALIFYING
+    if session_type == PRACTICE_TYPE:
+        return SessionKind.PRACTICE
+    return None
+
+
+def primary_kinds(kinds: tuple[SessionKind, ...]) -> tuple[SessionKind, ...]:
+    """Tipos que definem "vencedor": a corrida, se selecionada; senão, os tipos."""
+    return (SessionKind.RACE,) if SessionKind.RACE in kinds else kinds
 
 
 @dataclass(frozen=True)
@@ -109,6 +146,10 @@ class SessionRef:
     def is_sprint(self) -> bool:
         """Corrida sprint (na OpenF1, ``session_type`` também é ``Race``)."""
         return self.session_name == SPRINT_SESSION
+
+    @property
+    def kind(self) -> SessionKind | None:
+        return classify_session(self.session_name, self.session_type)
 
     @property
     def awards_points(self) -> bool:
