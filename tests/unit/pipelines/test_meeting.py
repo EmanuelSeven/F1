@@ -105,3 +105,21 @@ def test_run_meeting_skips_cancelled_sessions(fake_source, stores, ctx):
     laps = stores.silver.read_partition("laps", Partition(2023, 1210))
     assert laps.empty
     assert all(c[0] is not Endpoint.LAPS for c in fake_source.calls)
+
+
+def test_run_meeting_session_filter_keeps_only_selected(fake_source, stores, ctx):
+    meeting = fetch_meeting(fake_source, 1219)
+
+    run_meeting(
+        fake_source,
+        stores,
+        ctx,
+        meeting,
+        [Endpoint.LAPS],
+        session_filter=lambda s: s.is_race,
+    )
+
+    laps = stores.silver.read_partition("laps", PARTITION)
+    assert laps["session_key"].unique().tolist() == [9165]
+    lap_calls = [c for c in fake_source.calls if c[0] is Endpoint.LAPS]
+    assert len(lap_calls) == 1

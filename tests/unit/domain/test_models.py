@@ -77,3 +77,30 @@ def test_session_ref_from_record():
 def test_as_int_rejects_non_numbers(value):
     with pytest.raises(ValueError):
         as_int({"k": value}, "k")
+
+
+def test_session_ref_kinds_and_dates():
+    race = SessionRef.from_record(
+        {
+            "session_key": 9472,
+            "meeting_key": 1229,
+            "session_name": "Race",
+            "session_type": "Race",
+            "date_start": "2024-03-02T15:00:00+00:00",
+            "date_end": "2024-03-02T17:00:00+00:00",
+        }
+    )
+    sprint = SessionRef(1, 1, "Sprint", "Race")
+    quali = SessionRef(2, 1, "Sprint Qualifying", "Qualifying")
+
+    assert (race.is_race, race.is_sprint, race.awards_points) == (True, False, True)
+    assert (sprint.is_race, sprint.is_sprint, sprint.awards_points) == (
+        False,
+        True,
+        True,
+    )
+    assert not quali.awards_points
+    assert race.starts_at == datetime(2024, 3, 2, 15, tzinfo=UTC)
+    assert race.is_finished(datetime(2024, 3, 3, tzinfo=UTC))
+    assert not race.is_finished(datetime(2024, 3, 2, 16, tzinfo=UTC))
+    assert not sprint.is_finished(datetime(2030, 1, 1, tzinfo=UTC))  # sem data

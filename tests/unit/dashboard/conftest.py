@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 
 from f1.domain.endpoints import Endpoint
+from f1.ingestion.openf1_client import OpenF1AccessError, OpenF1Error
 from f1.pipelines.calendar import run_calendar
 from f1.pipelines.common import LakeStores, RunContext
 from f1.pipelines.meeting import fetch_meeting, run_meeting
@@ -33,3 +34,31 @@ def populated_lake(tmp_path, openf1_data) -> Path:
     ctx = RunContext("run-2", max_rejection_rate=0.5)
     run_meeting(source, stores, ctx, fetch_meeting(source, 1219))
     return data_dir
+
+
+class StubClient(FakeOpenF1Source):
+    """Fonte falsa usável como context manager (como o OpenF1Client)."""
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return None
+
+
+class DeniedClient(StubClient):
+    def fetch(self, endpoint, filters=()):
+        raise OpenF1AccessError("Live F1 session in progress")
+
+
+class FailingClient(StubClient):
+    def fetch(self, endpoint, filters=()):
+        raise OpenF1Error("connection reset")
+
+
+def as_season(openf1_data, year: int):
+    """Fixtures (Singapura 2023) relabeladas como outra temporada."""
+    for endpoint in (Endpoint.MEETINGS, Endpoint.SESSIONS):
+        for record in openf1_data[endpoint]:
+            record["year"] = year
+    return openf1_data

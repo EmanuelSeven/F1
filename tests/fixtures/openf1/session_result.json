@@ -1,6 +1,6 @@
 [
   {"session_key": 9161, "meeting_key": 1219, "driver_number": 55, "position": 1, "number_of_laps": 18, "duration": [92.708, 91.952, 90.984], "gap_to_leader": [0, 0, 0], "dnf": false, "dns": false, "dsq": false},
   {"session_key": 9161, "meeting_key": 1219, "driver_number": 1, "position": 11, "number_of_laps": 12, "duration": [92.451, 91.613, null], "gap_to_leader": [0.296, 0.289, null], "dnf": false, "dns": false, "dsq": false},
-  {"session_key": 9165, "meeting_key": 1219, "driver_number": 55, "position": 1, "number_of_laps": 62, "duration": 6278.123, "gap_to_leader": 0, "dnf": false, "dns": false, "dsq": false},
-  {"session_key": 9165, "meeting_key": 1219, "driver_number": 1, "position": 5, "number_of_laps": 62, "duration": 6299.564, "gap_to_leader": 21.441, "dnf": false, "dns": false, "dsq": false}
+  {"session_key": 9165, "meeting_key": 1219, "driver_number": 55, "position": 1, "number_of_laps": 62, "duration": 6278.123, "gap_to_leader": 0, "dnf": false, "dns": false, "dsq": false, "points": 25.0},
+  {"session_key": 9165, "meeting_key": 1219, "driver_number": 1, "position": 5, "number_of_laps": 62, "duration": 6299.564, "gap_to_leader": 21.441, "dnf": false, "dns": false, "dsq": false, "points": 10.0}
 ]

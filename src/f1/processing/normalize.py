@@ -105,6 +105,7 @@ COLUMNS: Mapping[Endpoint, tuple[Col, ...]] = MappingProxyType(
         Endpoint.SESSION_RESULT: (
             *_keys("session_key", "meeting_key", "driver_number"),
             *_cols("int", "position", "number_of_laps"),
+            Col("points", "float"),
             Col("duration", "last_float"),
             Col("gap_to_leader", "last_str"),
             *_cols("bool", "dnf", "dns", "dsq"),

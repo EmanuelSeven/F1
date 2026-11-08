@@ -3,8 +3,16 @@
 ```text
 src/f1/
 ├── __main__.py                 # CLI e composição das dependências
-├── dashboard.py                # Dashboard Streamlit (somente apresentação)
-├── dashboard/loaders.py        # Leitura e agregação do lake para o dashboard
+├── dashboard.py                # Roteador multipage do Streamlit
+├── dashboard/
+│   ├── loaders.py              # Leitura do lake (resumo, temporada, corrida)
+│   ├── bootstrap.py            # Cargas sob demanda (temporada, detalhes)
+│   └── views/
+│       ├── season.py           # Página "Temporada" (principal)
+│       ├── lake.py             # Página "Data Lake"
+│       ├── charts.py           # Gráficos Plotly (DataFrame → Figure)
+│       ├── formatting.py       # Textos e números em português
+│       └── theme.py            # CSS, cores de equipe/pneus, layout Plotly
 ├── config/settings.py          # Settings (pydantic-settings, prefixo F1_)
 ├── domain/
 │   ├── endpoints.py            # Endpoint, DatasetSpec, chaves e partições
@@ -15,7 +23,8 @@ src/f1/
 │   └── openf1_client.py        # Cliente httpx com retry e rate limit
 ├── processing/
 │   ├── normalize.py            # Colunas declaradas por dataset + casts
-│   └── lineage.py              # _run_id, _ingested_at, _source
+│   ├── lineage.py              # _run_id, _ingested_at, _source
+│   └── standings.py            # Pontos, vitórias, pódios, vencedores, KPIs
 ├── quality/
 │   ├── schemas.py              # Um DataFrameSchema Pandera por dataset
 │   └── validation.py           # validate() → ValidationResult / DataQualityError
@@ -28,7 +37,9 @@ src/f1/
 │   ├── common.py               # normaliza → valida → silver/quarentena
 │   ├── calendar.py             # meetings + sessions de um ano
 │   ├── meeting.py              # 6 datasets de sessão de um meeting
-│   └── season.py               # calendário + meetings encerrados
+│   ├── results.py              # drivers + resultados de várias sessões em lote
+│   ├── season.py               # calendário + meetings encerrados
+│   └── factory.py              # build_stores (CLI e dashboard)
 └── utils/
     ├── logging.py              # JsonFormatter + configure_logging
     ├── metrics.py              # PipelineMetrics + track_pipeline

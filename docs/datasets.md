@@ -95,6 +95,7 @@ Em classificação a API devolve `duration`/`gap_to_leader` como lista `[Q1, Q2,
 | `driver_number` | `Int64` | sim | [1, 99] |
 | `position` | `Int64` | não | [1, 30] |
 | `number_of_laps` | `Int64` | não | >= 0 |
+| `points` | `Float64` | não | [0, 50] |
 | `duration` | `Float64` | não | (0, 20000] |
 | `gap_to_leader` | `string` | não | — |
 | `dnf` | `boolean` | não | — |

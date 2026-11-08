@@ -1,0 +1,161 @@
+"""Gráficos Plotly do dashboard (DataFrame → Figure, sem Streamlit)."""
+
+import pandas as pd
+import plotly.graph_objects as go
+
+from f1.dashboard.views.formatting import format_lap, format_points
+from f1.dashboard.views.theme import (
+    COMPOUND_COLOURS,
+    COMPOUND_LABELS,
+    MUTED,
+    base_layout,
+)
+
+BAR_HEIGHT = 26
+
+
+def points_bar(standings: pd.DataFrame) -> go.Figure:
+    """Barras horizontais de pontos por piloto, líder no topo, cor da equipe."""
+    customdata = standings[["name", "team", "wins", "podiums"]].to_numpy()
+    fig = go.Figure(
+        go.Bar(
+            x=standings["points"],
+            y=standings["acronym"],
+            orientation="h",
+            marker={"color": standings["colour"].tolist(), "line": {"width": 0}},
+            text=[format_points(p) for p in standings["points"]],
+            textposition="outside",
+            cliponaxis=False,
+            customdata=customdata,
+            hovertemplate=(
+                "<b>%{customdata[0]}</b> · %{customdata[1]}<br>"
+                "Pontos: %{x}<br>Vitórias: %{customdata[2]}<br>"
+                "Pódios: %{customdata[3]}<extra></extra>"
+            ),
+        )
+    )
+    height = max(320, BAR_HEIGHT * len(standings) + 40)
+    max_points = float(standings["points"].max()) if not standings.empty else 1.0
+    fig.update_layout(
+        **base_layout(
+            height,
+            bargap=0.28,
+            showlegend=False,
+            xaxis={"visible": False, "range": [0, max_points * 1.12]},
+            yaxis={
+                "autorange": "reversed",
+                "type": "category",
+                "tickfont": {"size": 12},
+                "gridcolor": "rgba(0,0,0,0)",
+            },
+        )
+    )
+    return fig
+
+
+def lap_times_chart(laps: pd.DataFrame) -> go.Figure:
+    """Tempo por volta de cada piloto; companheiros de equipe em linha pontilhada."""
+    fig = go.Figure()
+    seen_colours: set[str] = set()
+    for acronym, rows in laps.groupby("acronym", sort=False):
+        colour = str(rows["colour"].iloc[0])
+        dash = "dot" if colour in seen_colours else "solid"
+        seen_colours.add(colour)
+        fig.add_trace(
+            go.Scatter(
+                x=rows["lap_number"],
+                y=rows["lap_duration"],
+                mode="lines",
+                name=str(acronym),
+                line={"color": colour, "width": 2, "dash": dash},
+                text=[format_lap(v) for v in rows["lap_duration"]],
+                hovertemplate=(
+                    f"<b>{acronym}</b> · volta %{{x}}<br>%{{text}}<extra></extra>"
+                ),
+            )
+        )
+    fig.update_layout(
+        **base_layout(
+            420,
+            xaxis={"title": "Volta", "gridcolor": "rgba(255,255,255,0.07)"},
+            yaxis={"title": "Tempo (s)", "gridcolor": "rgba(255,255,255,0.07)"},
+            hovermode="closest",
+        )
+    )
+    return fig
+
+
+def tyre_strategy_chart(stints: pd.DataFrame) -> go.Figure:
+    """Linha do tempo de pneus: um traço por composto, da volta inicial à final."""
+    order = list(dict.fromkeys(stints["acronym"]))
+    fig = go.Figure()
+    for compound, rows in stints.groupby("compound", sort=False):
+        name = str(compound)
+        fig.add_trace(
+            go.Bar(
+                x=rows["laps"],
+                base=rows["lap_start"] - 1,
+                y=rows["acronym"],
+                orientation="h",
+                name=COMPOUND_LABELS.get(name, name.title()),
+                marker={
+                    "color": COMPOUND_COLOURS.get(name, MUTED),
+                    "line": {"color": "#0F1115", "width": 1.5},
+                },
+                customdata=rows[
+                    ["lap_start", "lap_end", "tyre_age_at_start"]
+                ].to_numpy(),
+                hovertemplate=(
+                    "<b>%{y}</b> · "
+                    + COMPOUND_LABELS.get(name, name.title())
+                    + "<br>Voltas %{customdata[0]} a %{customdata[1]}"
+                    "<br>Idade inicial: %{customdata[2]} voltas<extra></extra>"
+                ),
+            )
+        )
+    fig.update_layout(
+        **base_layout(
+            max(320, BAR_HEIGHT * len(order) + 80),
+            barmode="overlay",
+            bargap=0.3,
+            xaxis={"title": "Volta", "gridcolor": "rgba(255,255,255,0.07)"},
+            yaxis={
+                "type": "category",
+                "categoryorder": "array",
+                "categoryarray": order,
+                "autorange": "reversed",
+                "gridcolor": "rgba(0,0,0,0)",
+            },
+        )
+    )
+    return fig
+
+
+def weather_chart(weather: pd.DataFrame) -> go.Figure:
+    """Temperatura do ar e da pista ao longo da corrida."""
+    fig = go.Figure()
+    series = (
+        ("track_temperature", "Pista", "#F97316"),
+        ("air_temperature", "Ar", "#38BDF8"),
+    )
+    for column, label, colour in series:
+        fig.add_trace(
+            go.Scatter(
+                x=weather["date"],
+                y=weather[column],
+                mode="lines",
+                name=label,
+                line={"color": colour, "width": 2},
+                hovertemplate=(
+                    f"{label}: %{{y:.1f}} °C<br>%{{x|%H:%M}} UTC<extra></extra>"
+                ),
+            )
+        )
+    fig.update_layout(
+        **base_layout(
+            320,
+            yaxis={"title": "°C", "gridcolor": "rgba(255,255,255,0.07)"},
+            xaxis={"title": "Horário (UTC)", "gridcolor": "rgba(255,255,255,0.07)"},
+        )
+    )
+    return fig

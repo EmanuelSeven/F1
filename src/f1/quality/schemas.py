@@ -127,6 +127,7 @@ SCHEMAS: Mapping[Endpoint, pa.DataFrameSchema] = MappingProxyType(
                 **_session_keys(),
                 "position": _opt("Int64", _range(1, 30)),
                 "number_of_laps": _opt("Int64", pa.Check.ge(0)),
+                "points": _opt("Float64", _range(0, 50)),
                 "duration": _opt("Float64", _range(0, 20_000, include_min=False)),
                 "gap_to_leader": _opt("string"),
                 "dnf": _opt("boolean"),

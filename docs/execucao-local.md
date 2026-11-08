@@ -82,7 +82,7 @@ poetry run mkdocs build --strict   # build do site em site/, falhando em avisos 
 
 ## Dashboard
 
-Painel Streamlit com o estado do data lake em `F1_DATA_DIR`:
+Painel analítico Streamlit (tema escuro, `.streamlit/config.toml`) sobre o data lake em `F1_DATA_DIR`:
 
 ```bash
 poetry run streamlit run src/f1/dashboard.py
@@ -90,15 +90,43 @@ poetry run streamlit run src/f1/dashboard.py
 poetry run task dashboard
 ```
 
-Abre em <http://localhost:8501> e mostra:
+Abre em <http://localhost:8501> com duas páginas, na barra de navegação do topo.
+
+### Temporada (página principal)
+
+1. **Cabeçalho:** "Fórmula 1 · temporada {ano}" e o seletor **Temporada** (2023 até o ano atual; padrão 2024).
+2. **Frase-resumo** gerada dos dados, por exemplo: "**Max Verstappen** soma **437** pontos; **7** pilotos diferentes venceram as **24** corridas."
+3. **Quatro KPIs:** corridas, sprints, vencedores diferentes (só corridas) e pontos do líder (corridas + sprints).
+4. **Temporada:** à esquerda, *Pontos por piloto* (barras na cor da equipe; o tooltip mostra vitórias e pódios); à direita, *Vencedores por corrida* (rodada, GP, data, vencedor e equipe). Pontos vêm de `session_results.points`, que já inclui o ponto da volta mais rápida.
+5. **Clique em uma corrida** da tabela para ver os detalhes em abas: resultado final, tempos de volta (escolha de pilotos e opção de ocultar voltas lentas), estratégia de pneus, pit stops e clima.
+
+**Carga automática.** Ao abrir uma temporada que ainda não está no lake, o painel roda, com o aviso *"Carregando dados da OpenF1..."*:
+
+- a pipeline de **calendário** (`meetings` + `sessions`);
+- a pipeline de **resultados** (`drivers` + `session_results`) de todas as **corridas e sprints já encerradas**. Os `session_key` vão em lote numa única requisição (2 requisições por temporada).
+
+**Detalhes sob demanda.** `laps`, `stints`, `pit_stops` e `weather` são baixados só quando você clica numa corrida, e só da **corrida principal** daquele fim de semana.
+
+Todas as cargas seguem o padrão bronze → silver → quarentena, respeitam `F1_REQUEST_INTERVAL_SECONDS` entre requisições e rodam uma vez por processo do Streamlit (`st.cache_resource`). As leituras do lake ficam em cache por 5 minutos (`st.cache_data`).
+
+Mensagens de erro:
+
+- se a OpenF1 negar o acesso (`OpenF1AccessError`, comum durante sessões ao vivo), o painel mostra um aviso e continua exibindo o que já foi baixado;
+- falhas de rede e dados reprovados na validação também geram mensagens, em vez de erro na tela;
+- falhas não ficam em cache, então recarregar a página tenta de novo.
+
+!!! info "Partições de resultados"
+    A carga do dashboard grava em `drivers` e `session_results` apenas as corridas e sprints de cada meeting (overwrite por partição). Para ter também treinos e classificação, rode `python -m f1 meeting --meeting-key N`, que regrava a partição com todas as sessões.
+
+### Data Lake
+
+Estado técnico do lake:
 
 - **Métricas gerais:** arquivos na bronze, registros processados (silver), registros rejeitados (quarentena), último `run_id` e data/hora da última execução (UTC).
-- **Estado das camadas:** para bronze, silver e quarentena: se existe, quantidade de arquivos, datasets e tamanho.
+- **Estado das camadas:** para bronze, silver e quarentena, se existe, a quantidade de arquivos e datasets e o tamanho.
 - **Datasets silver:** partições, registros, rejeitados e última execução de cada dataset.
 
 Os números ficam em cache por 60 s; o botão **Recarregar dados** força uma nova leitura.
-
-**Carga inicial automática.** Se `F1_DATA_DIR` estiver vazio, o dashboard executa na inicialização a pipeline `calendar` de **2024** (equivalente a `python -m f1 calendar --year 2024`), com o aviso *"Carregando dados da OpenF1..."*. A carga roda uma única vez por processo do Streamlit (`st.cache_resource`). Se a OpenF1 negar o acesso (`OpenF1AccessError`, comum durante sessões ao vivo) ou houver outra falha de rede, o painel mostra uma mensagem e tenta de novo no próximo recarregamento da página, porque falhas não ficam em cache.
 
 !!! note "Sessões ao vivo"
     Se o comando falhar com `OpenF1AccessError` (HTTP 401), há uma sessão de F1 ao vivo em andamento e a OpenF1 bloqueou o acesso gratuito. Reexecute quando ela terminar.

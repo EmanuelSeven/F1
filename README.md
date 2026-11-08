@@ -24,7 +24,16 @@ Os dados ficam em `data/silver/<dataset>/season=YYYY[/meeting_key=N]/part-00000.
 poetry run streamlit run src/f1/dashboard.py   # ou: poetry run task dashboard
 ```
 
-Mostra arquivos na bronze, registros processados e rejeitados, último `run_id`, última execução e o estado de cada camada. Detalhes em [Execução local](docs/execucao-local.md#dashboard).
+Painel analítico em tema escuro, com duas páginas:
+
+- **Temporada** (principal):
+  - seletor de ano (padrão 2024) e frase-resumo;
+  - KPIs de corridas, sprints, vencedores e pontos do líder;
+  - pontos por piloto e vencedores por corrida;
+  - ao clicar numa corrida: resultado, tempos de volta, pneus, pit stops e clima.
+- **Data Lake:** estado das camadas bronze, silver e quarentena.
+
+Os dados que faltam são baixados automaticamente da OpenF1: a temporada ao abrir o ano, e os detalhes da corrida ao clicar nela. Detalhes em [Execução local](docs/execucao-local.md#dashboard).
 
 ## Qualidade
 

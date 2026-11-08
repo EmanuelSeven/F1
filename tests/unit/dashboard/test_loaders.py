@@ -10,8 +10,16 @@ from f1.dashboard.loaders import (
     load_dataset_summary,
     load_layer_status,
     load_platform_summary,
+    load_race_details,
+    load_season_data,
+    race_details_loaded,
+    read_dataset,
     read_lineage,
+    season_is_loaded,
 )
+from f1.domain.endpoints import Endpoint
+from f1.domain.models import Partition
+from f1.storage.parquet_writer import ParquetDatasetStore
 
 
 def test_platform_summary_counts_layers_records_and_rejections(populated_lake):
@@ -99,3 +107,37 @@ def test_tables_have_one_row_per_item(populated_lake):
     assert datasets.set_index("dataset").loc["laps", "rejeitados"] == 1
     layers = layers_table(summary)
     assert layers["camada"].tolist() == ["bronze", "silver", "quarantine"]
+
+
+def test_read_dataset_empty_is_typed(tmp_path):
+    df = read_dataset(tmp_path, Endpoint.SESSION_RESULT, 2024)
+
+    assert df.empty
+    assert str(df["points"].dtype) == "Float64"
+
+
+def test_read_dataset_adds_columns_missing_from_old_partitions(populated_lake):
+    store = ParquetDatasetStore(populated_lake / "silver")
+    partition = Partition(2023, 1219)
+    old = store.read_partition("session_results", partition).drop(columns=["points"])
+    store.write_partition("session_results", partition, old)
+
+    df = read_dataset(populated_lake, Endpoint.SESSION_RESULT, 2023)
+
+    assert len(df) == 4
+    assert df["points"].isna().all()
+
+
+def test_season_and_race_readers(populated_lake):
+    assert season_is_loaded(populated_lake, 2023)
+    assert not season_is_loaded(populated_lake, 2024)
+    assert race_details_loaded(populated_lake, 2023, 1219)
+    assert not race_details_loaded(populated_lake, 2023, 1)
+
+    season = load_season_data(populated_lake, 2023)
+    assert (len(season.meetings), len(season.sessions)) == (2, 3)
+    assert (len(season.drivers), len(season.results)) == (4, 4)
+
+    details = load_race_details(populated_lake, 2023, 1219)
+    assert (len(details.laps), len(details.stints)) == (8, 4)
+    assert (len(details.pit_stops), len(details.weather)) == (2, 4)

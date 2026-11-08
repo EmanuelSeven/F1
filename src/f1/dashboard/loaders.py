@@ -1,7 +1,7 @@
 """Leitura e agregação do data lake para o dashboard (sem visualização).
 
-Lê apenas metadados e as colunas de linhagem dos arquivos Parquet, sem carregar
-os datasets inteiros.
+O resumo do lake lê apenas metadados e colunas de linhagem; as leituras da
+temporada e da corrida carregam os datasets silver de uma partição.
 """
 
 from collections.abc import Iterator
@@ -11,11 +11,25 @@ from pathlib import Path
 
 import pandas as pd
 
-from f1.domain.endpoints import DATASET_SPECS
-from f1.domain.models import INGESTED_AT, RUN_ID
-from f1.storage.paths import BRONZE, QUARANTINE, SILVER, layer_path
+from f1.domain.endpoints import DATASET_SPECS, Endpoint, spec_for
+from f1.domain.models import INGESTED_AT, RUN_ID, Partition
+from f1.processing.normalize import normalize
+from f1.storage.parquet_writer import PART_FILE
+from f1.storage.paths import BRONZE, QUARANTINE, SILVER, layer_path, partition_path
 
 LAYERS: tuple[str, ...] = (BRONZE, SILVER, QUARANTINE)
+SEASON_ENDPOINTS: tuple[Endpoint, ...] = (
+    Endpoint.MEETINGS,
+    Endpoint.SESSIONS,
+    Endpoint.DRIVERS,
+    Endpoint.SESSION_RESULT,
+)
+DETAIL_ENDPOINTS: tuple[Endpoint, ...] = (
+    Endpoint.LAPS,
+    Endpoint.STINTS,
+    Endpoint.PIT,
+    Endpoint.WEATHER,
+)
 _LAYER_PATTERNS = {BRONZE: "*.json", SILVER: "*.parquet", QUARANTINE: "*.parquet"}
 _LINEAGE_COLUMNS = [RUN_ID, INGESTED_AT]
 
@@ -189,4 +203,87 @@ def layers_table(summary: PlatformSummary) -> pd.DataFrame:
             }
             for item in summary.layers
         ]
+    )
+
+
+@dataclass(frozen=True)
+class SeasonData:
+    year: int
+    meetings: pd.DataFrame
+    sessions: pd.DataFrame
+    drivers: pd.DataFrame
+    results: pd.DataFrame
+
+
+@dataclass(frozen=True)
+class RaceDetails:
+    laps: pd.DataFrame
+    stints: pd.DataFrame
+    pit_stops: pd.DataFrame
+    weather: pd.DataFrame
+
+
+def _silver_partition(data_dir: Path, endpoint: Endpoint, partition: Partition) -> Path:
+    base = layer_path(data_dir, SILVER)
+    return partition_path(base, spec_for(endpoint).dataset, partition)
+
+
+def read_dataset(
+    data_dir: Path, endpoint: Endpoint, season: int, meeting_key: int | None = None
+) -> pd.DataFrame:
+    """Lê as partições silver de um dataset (temporada inteira ou um meeting).
+
+    Sem dados, retorna um DataFrame vazio com as colunas tipadas do dataset.
+    Partições gravadas antes de uma coluna nova existir recebem a coluna nula.
+    """
+    root = _silver_partition(data_dir, endpoint, Partition(season, meeting_key))
+    frames = [pd.read_parquet(f) for f in iter_data_files(root, "*.parquet")]
+    frames = [f for f in frames if not f.empty]
+    template = normalize(endpoint, [])
+    if not frames:
+        return template
+    df = pd.concat(frames, ignore_index=True)
+    for column in template.columns:
+        if column not in df.columns:
+            df[column] = pd.Series(pd.NA, index=df.index, dtype=template[column].dtype)
+    return df
+
+
+def season_is_loaded(data_dir: Path, year: int) -> bool:
+    """Calendário e ao menos um resultado da temporada já estão no silver."""
+    meetings = _silver_partition(data_dir, Endpoint.MEETINGS, Partition(year))
+    results = _silver_partition(data_dir, Endpoint.SESSION_RESULT, Partition(year))
+    has_results = next(iter_data_files(results, "*.parquet"), None) is not None
+    return (meetings / PART_FILE).is_file() and has_results
+
+
+def load_season_data(data_dir: Path, year: int) -> SeasonData:
+    """Datasets silver usados pela página da temporada."""
+    frames = {e: read_dataset(data_dir, e, year) for e in SEASON_ENDPOINTS}
+    return SeasonData(
+        year=year,
+        meetings=frames[Endpoint.MEETINGS],
+        sessions=frames[Endpoint.SESSIONS],
+        drivers=frames[Endpoint.DRIVERS],
+        results=frames[Endpoint.SESSION_RESULT],
+    )
+
+
+def race_details_loaded(data_dir: Path, year: int, meeting_key: int) -> bool:
+    """Voltas, stints, pit stops e clima do meeting já estão no silver."""
+    partition = Partition(year, meeting_key)
+    return all(
+        (_silver_partition(data_dir, e, partition) / PART_FILE).is_file()
+        for e in DETAIL_ENDPOINTS
+    )
+
+
+def load_race_details(data_dir: Path, year: int, meeting_key: int) -> RaceDetails:
+    """Datasets de detalhe de um meeting (todas as sessões gravadas)."""
+    frames = {e: read_dataset(data_dir, e, year, meeting_key) for e in DETAIL_ENDPOINTS}
+    return RaceDetails(
+        laps=frames[Endpoint.LAPS],
+        stints=frames[Endpoint.STINTS],
+        pit_stops=frames[Endpoint.PIT],
+        weather=frames[Endpoint.WEATHER],
     )
