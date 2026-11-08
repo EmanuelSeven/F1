@@ -30,6 +30,7 @@ src/f1/
 │   └── validation.py           # validate() → ValidationResult / DataQualityError
 ├── storage/
 │   ├── paths.py                # {base}/{dataset}/season=Y[/meeting_key=N]
+│   ├── atomic.py               # Troca atômica segura com gravações concorrentes
 │   ├── bronze.py               # JSON bruto com escrita atômica
 │   ├── parquet_writer.py       # Overwrite atômico de partição
 │   └── quarantine.py           # Rejeitados (limpa a partição se vazio)
