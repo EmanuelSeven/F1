@@ -2,7 +2,13 @@ import pandas as pd
 import pytest
 
 from f1.dashboard.views import charts
-from f1.dashboard.views.theme import COMPOUND_COLOURS, base_layout, kpi_card
+from f1.dashboard.views.theme import (
+    AXIS_DEFAULTS,
+    COMPOUND_COLOURS,
+    NO_TRANSLATE_SCRIPT,
+    base_layout,
+    kpi_card,
+)
 from f1.domain.endpoints import Endpoint
 from f1.processing.normalize import normalize
 from f1.processing.standings import (
@@ -86,3 +92,28 @@ def test_theme_helpers():
     layout = base_layout(300, showlegend=False)
     assert (layout["height"], layout["showlegend"]) == (300, False)
     assert layout["paper_bgcolor"] == "rgba(0,0,0,0)"
+
+
+def test_axes_reserve_space_for_labels(frames):
+    """Rótulos longos não podem ser cortados (ex.: "DIREITO" → "REITO")."""
+    standings = driver_standings(
+        frames[Endpoint.SESSION_RESULT],
+        frames[Endpoint.SESSIONS],
+        frames[Endpoint.DRIVERS],
+    )
+    fig = charts.points_bar(standings)
+
+    assert fig.layout.yaxis.automargin is True
+    assert fig.layout.yaxis.autorange == "reversed"  # override mesclado
+
+
+def test_base_layout_merges_axis_overrides():
+    layout = base_layout(300, yaxis={"title": "s"})
+    assert layout["yaxis"] == {**AXIS_DEFAULTS, "title": "s"}
+    assert layout["xaxis"]["automargin"] is True
+
+
+def test_no_translate_script_marks_page_as_portuguese():
+    assert 'setAttribute("lang", "pt-BR")' in NO_TRANSLATE_SCRIPT
+    assert 'setAttribute("translate", "no")' in NO_TRANSLATE_SCRIPT
+    assert "notranslate" in NO_TRANSLATE_SCRIPT

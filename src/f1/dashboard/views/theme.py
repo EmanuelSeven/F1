@@ -78,9 +78,36 @@ CSS = f"""
 """
 
 
+# O Streamlit serve a página com <html lang="en">; com a interface em português,
+# o navegador oferece tradução automática e traduz siglas e nomes dos gráficos
+# (ex.: "LAW" → "DIREITO", exibido cortado como "REITO"). Este script declara a
+# página como pt-BR e marca o documento como não traduzível.
+NO_TRANSLATE_SCRIPT = """
+<script>
+(() => {
+  const root = document.documentElement;
+  root.setAttribute("lang", "pt-BR");
+  root.setAttribute("translate", "no");
+  root.classList.add("notranslate");
+  if (!document.querySelector('meta[name="google"][content="notranslate"]')) {
+    const meta = document.createElement("meta");
+    meta.name = "google";
+    meta.content = "notranslate";
+    document.head.appendChild(meta);
+  }
+})();
+</script>
+"""
+
+
 def inject_css() -> None:
     """Aplica o CSS customizado à página."""
     st.markdown(CSS, unsafe_allow_html=True)
+
+
+def prevent_translation() -> None:
+    """Impede a tradução automática do navegador (página já está em pt-BR)."""
+    st.html(NO_TRANSLATE_SCRIPT, unsafe_allow_javascript=True)
 
 
 def kpi_card(label: str, value: str, caption: str) -> str:
@@ -104,8 +131,20 @@ def section(title: str, subtitle: str | None = None) -> None:
         st.markdown(subtitle_html, unsafe_allow_html=True)
 
 
+AXIS_DEFAULTS: dict[str, Any] = {
+    "gridcolor": GRID,
+    "zeroline": False,
+    # Reserva espaço para os rótulos: sem isso, rótulos longos são cortados.
+    "automargin": True,
+}
+
+
 def base_layout(height: int, **overrides: Any) -> dict[str, Any]:  # noqa: ANN401
-    """Layout Plotly padrão: fundo transparente, grade sutil, sem margens largas."""
+    """Layout Plotly padrão: fundo transparente, grade sutil, margens justas.
+
+    Opções de ``xaxis``/``yaxis`` em ``overrides`` são mescladas aos padrões
+    (``automargin`` continua ligado).
+    """
     layout: dict[str, Any] = {
         "height": height,
         "template": "plotly_dark",
@@ -114,9 +153,9 @@ def base_layout(height: int, **overrides: Any) -> dict[str, Any]:  # noqa: ANN40
         "margin": {"l": 8, "r": 24, "t": 8, "b": 8},
         "font": {"size": 13},
         "hoverlabel": {"font": {"size": 13}},
-        "xaxis": {"gridcolor": GRID, "zeroline": False},
-        "yaxis": {"gridcolor": GRID, "zeroline": False},
         "legend": {"orientation": "h", "y": -0.18, "x": 0},
     }
+    for axis in ("xaxis", "yaxis"):
+        layout[axis] = {**AXIS_DEFAULTS, **overrides.pop(axis, {})}
     layout.update(overrides)
     return layout

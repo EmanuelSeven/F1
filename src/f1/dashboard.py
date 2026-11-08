@@ -16,7 +16,7 @@ import streamlit as st
 
 from f1.dashboard.views.lake import render_lake
 from f1.dashboard.views.season import render_season
-from f1.dashboard.views.theme import inject_css
+from f1.dashboard.views.theme import inject_css, prevent_translation
 
 
 def main() -> None:
@@ -24,6 +24,7 @@ def main() -> None:
         page_title="Fórmula 1 — Dashboard", page_icon="🏁", layout="wide"
     )
     inject_css()
+    prevent_translation()
     pages = [
         st.Page(
             render_season,

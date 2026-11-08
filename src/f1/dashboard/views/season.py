@@ -61,6 +61,7 @@ from f1.quality.validation import DataQualityError
 CACHE_TTL_SECONDS = 300
 ROW_HEIGHT = 35
 SQUARE = "■"
+TEAM_COLUMN = "Equipe"
 PLOT_CONFIG = {"displayModeBar": False}
 DETAIL_TABS = (
     "Resultado final",
@@ -145,6 +146,11 @@ def summary_html(kpis: SeasonKpis) -> str:
     return re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", sentence)
 
 
+def team_label(team: object) -> str:
+    """Equipe com o quadradinho de cor: ``"■ Red Bull Racing"``."""
+    return f"{SQUARE} {team}"
+
+
 def winners_display(winners: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(
         {
@@ -152,8 +158,7 @@ def winners_display(winners: pd.DataFrame) -> pd.DataFrame:
             "GP": winners["gp"],
             "Data": [format_day_month(d) for d in winners["date_start"]],
             "Vencedor": winners["acronym"],
-            "Cor": SQUARE,
-            "Equipe": winners["team"],
+            "Equipe": [team_label(t) for t in winners["team"]],
         }
     )
 
@@ -168,8 +173,7 @@ def classification_display(classification: pd.DataFrame) -> pd.DataFrame:
             ],
             "Piloto": classification["acronym"],
             "Nome": classification["name"],
-            "Cor": SQUARE,
-            "Equipe": classification["team"],
+            "Equipe": [team_label(t) for t in classification["team"]],
             "Voltas": classification["number_of_laps"],
             "Tempo / diferença": [
                 format_result_time(r["position"], r["duration"], r["gap_to_leader"])
@@ -189,8 +193,7 @@ def pit_stops_display(stops: pd.DataFrame) -> pd.DataFrame:
         {
             "Volta": stops["lap_number"],
             "Piloto": stops["acronym"],
-            "Cor": SQUARE,
-            "Equipe": stops["team"],
+            "Equipe": [team_label(t) for t in stops["team"]],
             "Parada (s)": [format_seconds(v) for v in stops["stop_duration"]],
             "Pit lane (s)": [format_seconds(v) for v in stops["lane_duration"]],
         }
@@ -203,9 +206,13 @@ def pit_stops_display(stops: pd.DataFrame) -> pd.DataFrame:
 def _coloured(
     display: pd.DataFrame, colours: Sequence[str]
 ) -> "pd.io.formats.style.Styler":
-    """Pinta o quadradinho da coluna ``Cor`` com a cor da equipe."""
-    styles = [f"color: {c}; font-size: 1.05rem" for c in colours]
-    return display.style.apply(lambda _col: styles, subset=["Cor"])
+    """Pinta a coluna ``Equipe`` (quadradinho + nome) com a cor de cada equipe.
+
+    O ``st.dataframe`` só aceita estilo por célula, por isso a célula inteira
+    recebe a cor.
+    """
+    styles = [f"color: {c}" for c in colours]
+    return display.style.apply(lambda _col: styles, subset=[TEAM_COLUMN])
 
 
 def _table(  # noqa: PLR0913 - opções de exibição explícitas
@@ -217,9 +224,8 @@ def _table(  # noqa: PLR0913 - opções de exibição explícitas
     max_rows: int = 25,
     column_config: dict[str, object] | None = None,
 ) -> list[int]:
-    """Tabela com quadradinho colorido; retorna as linhas selecionadas."""
-    config: dict[str, object] = {"Cor": st.column_config.TextColumn("", width=36)}
-    config.update(column_config or {})
+    """Tabela com a equipe colorida; retorna as linhas selecionadas."""
+    config: dict[str, object] = dict(column_config or {})
     height = ROW_HEIGHT * (min(len(display), max_rows) + 1) + 3
     options: dict[str, object] = {
         "hide_index": True,

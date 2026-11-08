@@ -7,6 +7,7 @@ from f1.domain.endpoints import Endpoint
 from f1.processing.normalize import normalize
 from f1.processing.standings import (
     FALLBACK_COLOUR,
+    driver_acronyms,
     driver_directory,
     driver_standings,
     lap_times,
@@ -218,3 +219,69 @@ def test_weather_summary_empty():
     summary = weather_summary(normalize(Endpoint.WEATHER, []))
     assert summary.air_avg is None
     assert summary.rained is False
+
+
+def _drivers(**overrides) -> pd.DataFrame:
+    record = {
+        "session_key": RACE,
+        "meeting_key": 1219,
+        "driver_number": 30,
+        "name_acronym": "LAW",
+        "first_name": "Liam",
+        "last_name": "Lawson",
+        "full_name": "Liam LAWSON",
+        "broadcast_name": "L LAWSON",
+        "team_name": "RB",
+        "team_colour": "6692FF",
+    }
+    return normalize(Endpoint.DRIVERS, [{**record, **overrides}])
+
+
+@pytest.mark.parametrize(
+    ("overrides", "expected"),
+    [
+        ({}, "LAW"),
+        ({"name_acronym": " law "}, "LAW"),  # normaliza espaços e caixa
+        ({"name_acronym": None}, "LAW"),  # sem sigla: sobrenome
+        ({"name_acronym": ""}, "LAW"),
+        ({"name_acronym": None, "last_name": None}, "30"),  # último recurso
+    ],
+)
+def test_driver_acronyms(overrides, expected):
+    assert driver_acronyms(_drivers(**overrides)).tolist() == [expected]
+
+
+def test_lawson_keeps_law_acronym_in_standings(season):
+    """Regressão: no gráfico aparecia "REITO" no lugar de LAW (Liam Lawson).
+
+    A sigla vem de ``name_acronym`` (LAW); "REITO" era "DIREITO" — tradução
+    automática de "LAW" pelo navegador — cortado pela margem do eixo.
+    """
+    drivers = pd.concat([season["drivers"], _drivers()], ignore_index=True)
+    results = pd.concat(
+        [
+            season["results"],
+            normalize(
+                Endpoint.SESSION_RESULT,
+                [
+                    {
+                        "session_key": RACE,
+                        "meeting_key": 1219,
+                        "driver_number": 30,
+                        "position": 9,
+                        "points": 4.0,
+                    }
+                ],
+            ),
+        ],
+        ignore_index=True,
+    )
+    standings = driver_standings(results, season["sessions"], drivers)
+    lawson = standings.set_index("driver_number").loc[30]
+
+    assert (lawson["acronym"], lawson["name"], lawson["points"]) == (
+        "LAW",
+        "Liam Lawson",
+        4.0,
+    )
+    assert standings["acronym"].str.fullmatch(r"[A-Z]{3}").all()

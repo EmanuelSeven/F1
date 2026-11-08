@@ -118,6 +118,9 @@ Mensagens de erro:
 !!! info "Partições de resultados"
     A carga do dashboard grava em `drivers` e `session_results` apenas as corridas e sprints de cada meeting (overwrite por partição). Para ter também treinos e classificação, rode `python -m f1 meeting --meeting-key N`, que regrava a partição com todas as sessões.
 
+!!! note "Tradução automática do navegador"
+    A interface já está em português e é marcada como não traduzível (`lang="pt-BR"`, `translate="no"`). Sem isso, o navegador traduzia siglas e nomes dos gráficos; por exemplo, "LAW" (Liam Lawson) virava "DIREITO" e aparecia cortado como "REITO".
+
 ### Data Lake
 
 Estado técnico do lake:

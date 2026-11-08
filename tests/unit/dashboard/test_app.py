@@ -81,8 +81,12 @@ def test_season_page_is_default_and_loads_2024(data_env, tmp_path, client, openf
     ):
         assert caption in html
     assert app.selectbox(key="season_year").value == 2024
+    assert any('setAttribute("translate", "no")' in h.value for h in app.html)
     winners = app.dataframe[0].value
     assert winners["Vencedor"].tolist() == ["SAI"]
+    assert winners["Equipe"].tolist() == ["■ Ferrari"]
+    assert "Cor" not in winners.columns
+    assert "" not in winners.columns
     assert len(app.get("plotly_chart")) == 1
     assert "Clique em uma corrida" in " ".join(c.value for c in app.caption)
 
@@ -165,6 +169,7 @@ def test_race_details_downloads_on_demand(data_env, populated_lake, client):
     assert "Rodada 1 · Singapore" in _html(app)
     result = app.dataframe[0].value
     assert result["Piloto"].tolist() == ["SAI", "VER"]
+    assert result["Equipe"].tolist() == ["■ Ferrari", "■ Red Bull Racing"]
     assert result["Tempo / diferença"].tolist() == ["1:44:38.123", "+21,441 s"]
     assert len(app.get("plotly_chart")) == 3  # voltas, pneus, clima
     assert app.dataframe[1].value["Piloto"].tolist() == ["SAI", "VER"]  # pit stops
@@ -256,8 +261,8 @@ def test_winners_display_columns(populated_lake):
     winners = race_winners(data.results, data.sessions, data.meetings, data.drivers)
     display = winners_display(winners)
 
-    assert list(display.columns) == ["Rod.", "GP", "Data", "Vencedor", "Cor", "Equipe"]
-    assert display.iloc[0].tolist() == [1, "Singapore", "17/09", "SAI", "■", "Ferrari"]
+    assert list(display.columns) == ["Rod.", "GP", "Data", "Vencedor", "Equipe"]
+    assert display.iloc[0].tolist() == [1, "Singapore", "17/09", "SAI", "■ Ferrari"]
 
 
 def test_race_details_quality_failure_shows_message(data_env, populated_lake, client):

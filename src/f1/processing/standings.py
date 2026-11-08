@@ -65,18 +65,30 @@ def points_sessions(sessions: pd.DataFrame) -> pd.DataFrame:
     return df[[*columns, "date_start"]].reset_index(drop=True)
 
 
+def driver_acronyms(drivers: pd.DataFrame) -> pd.Series:
+    """Sigla de 3 letras de cada piloto (ex.: ``LAW``).
+
+    Usa ``name_acronym`` normalizado (sem espaços, em maiúsculas); se vier vazio,
+    as 3 primeiras letras do sobrenome; em último caso, o número do piloto.
+    """
+    acronym = drivers["name_acronym"].astype("string").str.strip().str.upper()
+    from_last = drivers["last_name"].astype("string").str.strip().str[:3].str.upper()
+    number = drivers["driver_number"].astype("string")
+    filled = acronym.mask(acronym == "").fillna(from_last.mask(from_last == ""))
+    return filled.fillna(number).astype(str)
+
+
 def driver_info(drivers: pd.DataFrame) -> pd.DataFrame:
     """Sigla, nome, equipe e cor por ``(session_key, driver_number)``."""
     first = drivers["first_name"].fillna("")
     last = drivers["last_name"].fillna("")
     full = (first + " " + last).str.strip()
     fallback = drivers["full_name"].fillna(drivers["driver_number"].astype("string"))
-    number = drivers["driver_number"].astype("string")
     out = pd.DataFrame(
         {
             "session_key": drivers["session_key"],
             "driver_number": drivers["driver_number"],
-            "acronym": drivers["name_acronym"].fillna(number).astype(str),
+            "acronym": driver_acronyms(drivers),
             "name": full.where(full != "", fallback).astype(str),
             "team": drivers["team_name"].fillna("—").astype(str),
             "colour": [team_colour(v) for v in drivers["team_colour"]],
