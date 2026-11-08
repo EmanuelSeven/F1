@@ -1,0 +1,37 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Instalar Poetry
+        run: pipx install poetry
+
+      - name: Instalar dependências
+        run: poetry install --with docs
+
+      - name: Formatação
+        run: poetry run ruff format --check .
+
+      - name: Lint
+        run: poetry run ruff check .
+
+      - name: Tipagem
+        run: poetry run mypy src
+
+      - name: Testes
+        run: poetry run pytest -m "not integration"
+
+      - name: Documentação
+        run: poetry run mkdocs build --strict
