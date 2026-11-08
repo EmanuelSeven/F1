@@ -11,13 +11,10 @@ from f1.config.settings import Settings, get_settings
 from f1.domain.endpoints import SESSION_ENDPOINTS, Endpoint, parse_endpoints
 from f1.ingestion.openf1_client import OpenF1Client
 from f1.pipelines.calendar import run_calendar
-from f1.pipelines.common import LakeStores, RunContext
+from f1.pipelines.common import RunContext
+from f1.pipelines.factory import build_stores
 from f1.pipelines.meeting import fetch_meeting, run_meeting
 from f1.pipelines.season import run_season
-from f1.storage.bronze import JsonRawStore
-from f1.storage.parquet_writer import ParquetDatasetStore
-from f1.storage.paths import BRONZE, QUARANTINE, SILVER, layer_path
-from f1.storage.quarantine import QuarantineStore
 from f1.utils.logging import configure_logging
 from f1.utils.metrics import new_run_id
 
@@ -57,14 +54,6 @@ def _datasets(value: str) -> tuple[Endpoint, ...]:
         return parse_endpoints(v for v in value.split(",") if v.strip())
     except ValueError as exc:
         raise argparse.ArgumentTypeError(str(exc)) from exc
-
-
-def build_stores(settings: Settings) -> LakeStores:
-    return LakeStores(
-        raw=JsonRawStore(layer_path(settings.data_dir, BRONZE)),
-        silver=ParquetDatasetStore(layer_path(settings.data_dir, SILVER)),
-        quarantine=QuarantineStore(layer_path(settings.data_dir, QUARANTINE)),
-    )
 
 
 def main(argv: Sequence[str] | None = None, settings: Settings | None = None) -> int:
