@@ -40,6 +40,15 @@ from f1.dashboard.views.formatting import (
     winners_caption,
 )
 from f1.dashboard.views.sidebar import current_filters
+from f1.dashboard.views.tables import (
+    HIGHLIGHT_STYLE,
+    ROW_HEIGHT,
+    SQUARE,
+    TEAM_COLUMN,
+    render_table,
+    table_styles,
+    team_label,
+)
 from f1.dashboard.views.theme import kpi_card, section
 from f1.domain.models import POINTS_KINDS, SessionKind
 from f1.processing.filters import SeasonFilter, SeasonView, season_view
@@ -54,11 +63,15 @@ from f1.processing.standings import (
     weather_summary,
 )
 
-ROW_HEIGHT = 35
-SQUARE = "■"
-TEAM_COLUMN = "Equipe"
-HIGHLIGHT_STYLE = "background-color: rgba(225, 6, 0, 0.22)"
 PLOT_CONFIG = {"displayModeBar": False}
+__all__ = [  # reexportados (usados por testes e outras páginas)
+    "HIGHLIGHT_STYLE",
+    "ROW_HEIGHT",
+    "SQUARE",
+    "TEAM_COLUMN",
+    "table_styles",
+    "team_label",
+]
 DETAIL_TABS = (
     "Resultado final",
     "Tempos de volta",
@@ -75,11 +88,6 @@ def summary_html(kpis: SeasonKpis) -> str:
     """Frase-resumo em HTML, com os destaques em ``<strong>``."""
     sentence = escape(summary_sentence(kpis))
     return re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", sentence)
-
-
-def team_label(team: object) -> str:
-    """Equipe com o quadradinho de cor: ``"■ Red Bull Racing"``."""
-    return f"{SQUARE} {team}"
 
 
 def winners_display(
@@ -134,21 +142,6 @@ def pit_stops_display(stops: pd.DataFrame) -> pd.DataFrame:
     )
 
 
-def table_styles(
-    display: pd.DataFrame, colours: Sequence[str], highlight: Sequence[int] = ()
-) -> pd.DataFrame:
-    """CSS por célula: cor da equipe na coluna ``Equipe`` e linhas em destaque."""
-    styles = pd.DataFrame("", index=display.index, columns=display.columns)
-    if TEAM_COLUMN in styles.columns:
-        styles[TEAM_COLUMN] = [f"color: {c}" for c in colours]
-    for row in highlight:
-        styles.iloc[row] = [
-            f"{css}; {HIGHLIGHT_STYLE}" if css else HIGHLIGHT_STYLE
-            for css in styles.iloc[row]
-        ]
-    return styles
-
-
 def chart_standings(standings: pd.DataFrame, *, show_zero: bool) -> pd.DataFrame:
     """Pilotos do gráfico de pontos: sem os de 0 ponto, salvo ``show_zero``."""
     if show_zero:
@@ -163,41 +156,6 @@ def selection_key(year: int, filt: SeasonFilter) -> str:
 
 
 # --- componentes -----------------------------------------------------------
-
-
-def _table(  # noqa: PLR0913 - opções de exibição explícitas
-    display: pd.DataFrame,
-    colours: Sequence[str],
-    *,
-    key: str,
-    selectable: bool = False,
-    highlight: Sequence[int] = (),
-    max_rows: int = 25,
-    column_config: dict[str, object] | None = None,
-) -> list[int]:
-    """Tabela com a equipe colorida; retorna as linhas selecionadas.
-
-    O ``st.dataframe`` só aceita estilo por célula, por isso a célula ``Equipe``
-    inteira (quadradinho + nome) recebe a cor.
-    """
-    styles = table_styles(display, colours, highlight)
-    styled = display.style.apply(lambda _df: styles, axis=None)
-    height = ROW_HEIGHT * (min(len(display), max_rows) + 1) + 3
-    options: dict[str, object] = {
-        "hide_index": True,
-        "width": "stretch",
-        "height": height,
-        "key": key,
-        "column_config": dict(column_config or {}),
-    }
-    if not selectable:
-        st.dataframe(styled, **options)  # type: ignore[call-overload]
-        return []
-    event = st.dataframe(  # type: ignore[call-overload]
-        styled, on_select="rerun", selection_mode="single-row", **options
-    )
-    selection = getattr(event, "selection", None)
-    return [int(r) for r in getattr(selection, "rows", [])]
 
 
 def _header(year: int) -> None:
@@ -244,7 +202,7 @@ def _winners_column(view: SeasonView, year: int) -> pd.Series | None:
     if view.winners.empty:
         st.info("Nenhuma vitória dos pilotos filtrados.")
         return None
-    rows = _table(
+    rows = render_table(
         winners_display(view.winners, with_session=not by_race),
         view.winners["colour"].tolist(),
         key=selection_key(year, view.filter),
@@ -328,7 +286,7 @@ def _pits_tab(details: RaceDetails, data: SeasonData, session_key: int) -> None:
             f"({fastest['acronym']}, volta {int(fastest['lap_number'])}) · "
             f"{len(stops)} paradas no total."
         )
-    _table(
+    render_table(
         pit_stops_display(stops), stops["colour"].tolist(), key=f"pits_{session_key}"
     )
 
@@ -379,7 +337,7 @@ def render_race_details(
     classification = race_classification(data.results, data.drivers, session_key)
     tabs = st.tabs(list(DETAIL_TABS) if is_race else [DETAIL_TABS[0]])
     with tabs[0]:
-        _table(
+        render_table(
             classification_display(classification),
             classification["colour"].tolist(),
             key=f"result_{session_key}",

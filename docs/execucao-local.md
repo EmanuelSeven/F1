@@ -90,7 +90,7 @@ poetry run streamlit run src/f1/dashboard.py
 poetry run task dashboard
 ```
 
-Abre em <http://localhost:8501> com duas páginas, na barra de navegação do topo.
+Abre em <http://localhost:8501> com três páginas, na barra de navegação do topo: **Temporada**, **Voltas** e **Data Lake**.
 
 ### Barra lateral (comum a todas as páginas)
 
@@ -99,7 +99,7 @@ No topo fica a marca **FORMULA 1 · Analytics**. A seção **Filtros** traz:
 | Filtro | Efeito |
 |---|---|
 | **Temporada** | 2023 até o ano atual (padrão 2024). Também fica na URL (`?ano=2024`), para compartilhar o link |
-| **Tipo de sessão** | Corrida, Sprint, Classificação, Treino livre (padrão: Corrida + Sprint). Aparece só nas páginas onde se aplica. Nessas páginas, os pontos somam os tipos marcados, e os vencedores usam as corridas, se marcadas; senão, os tipos marcados (só Classificação mostra as poles). Na **Temporada** ele fica desabilitado, com uma explicação: a página considera sempre corridas e sprints. No **Data Lake** fica oculto. A escolha é preservada ao passar por páginas sem o filtro |
+| **Tipo de sessão** | Corrida, Sprint, Classificação, Treino livre (padrão: Corrida + Sprint). Aparece só nas páginas onde se aplica: hoje, a página **Voltas**. Nessas páginas, os pontos somam os tipos marcados, e os vencedores usam as corridas, se marcadas; senão, os tipos marcados (só Classificação mostra as poles). Na **Temporada** ele fica desabilitado, com uma explicação: a página considera sempre corridas e sprints. No **Data Lake** fica oculto. A escolha é preservada ao passar por páginas sem o filtro |
 | **Grande Prêmio** | "Todos" ou um GP do ano. Não filtra os números: destaca a linha na tabela de vencedores e abre os detalhes daquele GP |
 | **Equipe e piloto** | Restringe gráfico, tabela, KPIs e frase aos pilotos escolhidos. A lista de pilotos depende das equipes marcadas, e os dois filtros se combinam (E) |
 | **Limpar filtros** | Volta tudo ao padrão, menos a temporada |
@@ -114,10 +114,10 @@ Um piloto que usou mais de um número no ano aparece uma única vez, com os pont
 
 ### Temporada (página principal)
 
-1. **Cabeçalho:** "Fórmula 1 · temporada {ano}" (o ano vem da barra lateral).
+1. **Cabeçalho:** "Fórmula 1 · Temporada {ano}" (o ano vem da barra lateral). A data da última atualização dos dados aparece no rodapé da barra lateral.
 2. **Frase-resumo** gerada dos dados, por exemplo: "**Max Verstappen** soma **437** pontos; **7** pilotos diferentes venceram as **24** corridas." Com a **temporada em andamento** (há corridas futuras no calendário), ela vira "**{líder}** lidera com **{pts}** pontos após **{feitas}** de **{total}** corridas; **{n}** pilotos diferentes venceram."
 3. **Quatro KPIs:** corridas, sprints, vencedores diferentes (só corridas) e pontos do líder (corridas + sprints). Com a temporada em andamento, o cartão *Corridas* mostra "{feitas}/{total}" e a legenda "Realizadas / previstas".
-4. **Temporada:** à esquerda, *Pontos por piloto* (barras na cor da equipe; o tooltip mostra vitórias e pódios). O gráfico considera só corridas e sprints e esconde pilotos com 0 ponto; o botão "Mostrar pilotos sem pontos" (desligado por padrão) mostra todos. à direita, *Vencedores por corrida* (rodada, GP, data, vencedor e equipe). Pontos vêm de `session_results.points`, que já inclui o ponto da volta mais rápida.
+4. **Temporada:** à esquerda, *Pontos por piloto* (barras na cor da equipe; o tooltip mostra vitórias e pódios). O gráfico considera só corridas e sprints e esconde pilotos com 0 pontos; o botão "Mostrar pilotos sem pontos" (desligado por padrão) mostra todos. À direita, *Vencedores por corrida* (rodada, GP, data, vencedor e equipe). Os pontos vêm de `session_results.points`, que já traz a pontuação oficial de cada temporada (incluindo o ponto extra da volta mais rápida, que valeu até 2024).
 5. **Clique em uma corrida** da tabela para ver os detalhes em abas: resultado final, tempos de volta (escolha de pilotos e opção de ocultar voltas lentas), estratégia de pneus, pit stops e clima.
 
 **Carga automática.** Ao abrir uma temporada que ainda não está no lake, o painel roda, com o aviso *"Carregando dados da OpenF1..."*:
@@ -140,6 +140,21 @@ Mensagens de erro:
 
 !!! note "Tradução automática do navegador"
     A interface já está em português e é marcada como não traduzível (`lang="pt-BR"`, `translate="no"`). Sem isso, o navegador traduzia siglas e nomes dos gráficos; por exemplo, "LAW" (Liam Lawson) virava "DIREITO" e aparecia cortado como "REITO".
+
+### Voltas
+
+As **5 voltas mais rápidas por circuito**.
+
+- **Circuito:** o do filtro **Grande Prêmio**; com "Todos", o GP mais recente já disputado.
+- **Sessões:** as do filtro **Tipo de sessão** (padrão: corrida e sprint). Marque **Classificação** para ver as voltas de pole, que costumam ser as mais rápidas.
+- **Equipe e piloto:** restringe as voltas aos pilotos escolhidos.
+- **"Uma volta por piloto":** mostra só a melhor volta de cada piloto.
+
+A página traz a volta mais rápida em destaque, um gráfico de pontos e uma tabela com posição, piloto, equipe, tempo, diferença para a melhor volta, sessão e número da volta. O gráfico é de pontos, e não de barras, porque as diferenças são de décimos: barras partindo do zero esconderiam a diferença, e barras cortadas a exagerariam.
+
+Os tempos de volta são baixados sob demanda, só das sessões escolhidas daquele GP. As sessões que já estavam no lake continuam lá, então a aba *Tempos de volta* da Temporada não perde dados.
+
+Voltas de saída do box são ignoradas. A OpenF1 não marca voltas anuladas pela direção de prova (ex.: limites de pista), por isso elas podem aparecer.
 
 ### Data Lake
 

@@ -287,3 +287,9 @@ def load_race_details(data_dir: Path, year: int, meeting_key: int) -> RaceDetail
         pit_stops=frames[Endpoint.PIT],
         weather=frames[Endpoint.WEATHER],
     )
+
+
+def lap_session_keys(data_dir: Path, year: int, meeting_key: int) -> set[int]:
+    """Sessões do meeting que já têm voltas no silver."""
+    laps = read_dataset(data_dir, Endpoint.LAPS, year, meeting_key)
+    return {int(k) for k in laps["session_key"].dropna().unique()}

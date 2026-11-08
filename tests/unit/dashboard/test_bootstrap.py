@@ -5,10 +5,12 @@ import pytest
 from f1.config.settings import Settings
 from f1.dashboard.bootstrap import (
     BOOTSTRAP_YEAR,
+    run_meeting_laps,
     run_race_details,
     run_season_bootstrap,
 )
 from f1.dashboard.loaders import (
+    lap_session_keys,
     load_race_details,
     load_season_data,
     race_details_loaded,
@@ -111,3 +113,26 @@ def test_season_bootstrap_loads_selected_kinds(settings, openf1_data):
     assert result.sessions == 2
     data = load_season_data(settings.data_dir, 2023)
     assert sorted(data.results["session_key"].unique()) == [9161, 9165]
+
+
+def test_meeting_laps_loads_only_given_sessions(settings, openf1_data):
+    stub = StubClient(openf1_data)
+    meeting = MeetingRef(1219, 2023, "Singapore Grand Prix")
+
+    result = run_meeting_laps(settings, meeting, [9161], source_factory=lambda _: stub)
+
+    assert result.records == 2  # 2 voltas da classificação
+    assert lap_session_keys(settings.data_dir, 2023, 1219) == {9161}
+    assert [c[0] for c in stub.calls] == [Endpoint.SESSIONS, Endpoint.LAPS]
+
+
+def test_race_details_keep_laps_of_other_sessions(settings, openf1_data):
+    stub = StubClient(openf1_data)
+    meeting = MeetingRef(1219, 2023, "Singapore Grand Prix")
+    run_meeting_laps(settings, meeting, [9161], source_factory=lambda _: stub)
+
+    run_race_details(
+        settings, meeting, source_factory=lambda _: stub, keep_sessions={9161}
+    )
+
+    assert lap_session_keys(settings.data_dir, 2023, 1219) == {9161, 9165}

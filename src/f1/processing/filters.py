@@ -113,16 +113,17 @@ def grand_prix_options(sessions: pd.DataFrame, meetings: pd.DataFrame) -> pd.Dat
     races = classified_sessions(sessions)
     races = races.loc[races["kind"] == RACE, ["meeting_key", "round"]]
     df = races.merge(
-        meetings[["meeting_key", "meeting_name", "country_name"]],
+        meetings[["meeting_key", "meeting_name", "country_name", "circuit_short_name"]],
         on="meeting_key",
         how="left",
     )
     name = df["meeting_name"].fillna(df["country_name"]).fillna("—").astype(str)
     df["gp"] = name.str.replace(r"\s*Grand Prix$", "", regex=True)
+    df["circuit"] = df["circuit_short_name"].fillna(df["gp"]).astype(str)
     df["label"] = [
         f"{int(r)} · {g}" for r, g in zip(df["round"], df["gp"], strict=True)
     ]
-    return df[["meeting_key", "round", "gp", "label"]].reset_index(drop=True)
+    return df[["meeting_key", "round", "gp", "circuit", "label"]].reset_index(drop=True)
 
 
 def season_view(  # noqa: PLR0913 - datasets + filtro + relógio injetável

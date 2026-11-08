@@ -159,3 +159,56 @@ def weather_chart(weather: pd.DataFrame) -> go.Figure:
         )
     )
     return fig
+
+
+def _gap_text(gap: float) -> str:
+    """``0.39`` → ``"+0,390"`` (diferença para a volta mais rápida)."""
+    return f"+{gap:.3f}".replace(".", ",")
+
+
+def fastest_laps_chart(top: pd.DataFrame) -> go.Figure:
+    """Voltas mais rápidas: um ponto por volta no seu tempo, cor da equipe.
+
+    Pontos (e não barras) porque as diferenças são de décimos: barras partindo
+    do zero esconderiam a diferença, e barras truncadas a exagerariam.
+    """
+    labels = [
+        f"{int(p)}º {a}" for p, a in zip(top["position"], top["acronym"], strict=True)
+    ]
+    text = [
+        format_lap(t) if g == 0 else f"{format_lap(t)}  {_gap_text(g)}"
+        for t, g in zip(top["lap_duration"], top["gap"], strict=True)
+    ]
+    customdata = top[["name", "team", "session_name", "lap_number"]].to_numpy()
+    fig = go.Figure(
+        go.Scatter(
+            x=top["lap_duration"],
+            y=labels,
+            mode="markers+text",
+            marker={"color": top["colour"].tolist(), "size": 18, "line": {"width": 0}},
+            text=text,
+            textposition="middle right",
+            cliponaxis=False,
+            customdata=customdata,
+            hovertemplate=(
+                "<b>%{customdata[0]}</b> · %{customdata[1]}<br>"
+                "%{customdata[2]}, volta %{customdata[3]}<extra></extra>"
+            ),
+        )
+    )
+    low = float(top["lap_duration"].min()) if not top.empty else 0.0
+    high = float(top["lap_duration"].max()) if not top.empty else 1.0
+    pad = max(0.25, (high - low) * 0.3)
+    fig.update_layout(
+        **base_layout(
+            max(260, 54 * len(top) + 60),
+            showlegend=False,
+            xaxis={"title": "Tempo de volta (s)", "range": [low - pad, high + pad * 3]},
+            yaxis={
+                "autorange": "reversed",
+                "type": "category",
+                "gridcolor": "rgba(0,0,0,0)",
+            },
+        )
+    )
+    return fig

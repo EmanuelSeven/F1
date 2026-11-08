@@ -13,6 +13,7 @@ import streamlit as st
 from f1.config.settings import get_settings
 from f1.dashboard.bootstrap import (
     BootstrapResult,
+    run_meeting_laps,
     run_race_details,
     run_season_bootstrap,
 )
@@ -20,6 +21,7 @@ from f1.dashboard.loaders import (
     PlatformSummary,
     RaceDetails,
     SeasonData,
+    lap_session_keys,
     load_platform_summary,
     load_race_details,
     load_season_data,
@@ -90,9 +92,33 @@ def bootstrap_season(
 def bootstrap_race(data_dir: Path, year: int, meeting_key: int) -> BootstrapResult:
     """Detalhes de uma corrida, uma vez por processo."""
     meeting = MeetingRef(meeting_key=meeting_key, year=year, name="")
-    result = run_race_details(get_settings(), meeting)
+    keep = lap_session_keys(data_dir, year, meeting_key)  # ex.: voltas da quali
+    result = run_race_details(get_settings(), meeting, keep_sessions=keep)
     clear_lake_caches()
     return result
+
+
+@st.cache_resource(show_spinner="Baixando tempos de volta...")
+def bootstrap_laps(
+    data_dir: Path, year: int, meeting_key: int, session_keys: tuple[int, ...]
+) -> BootstrapResult:
+    """Voltas das sessões ``session_keys`` de um meeting, uma vez por processo."""
+    meeting = MeetingRef(meeting_key=meeting_key, year=year, name="")
+    result = run_meeting_laps(get_settings(), meeting, session_keys)
+    clear_lake_caches()
+    return result
+
+
+def ensure_laps(
+    data_dir: Path, year: int, meeting_key: int, session_keys: Iterable[int]
+) -> None:
+    """Garante no lake as voltas das ``session_keys`` (mantém as já gravadas)."""
+    wanted = {int(k) for k in session_keys}
+    present = lap_session_keys(data_dir, year, meeting_key)
+    if not wanted or wanted <= present:
+        return
+    union = tuple(sorted(wanted | present))
+    try_load(bootstrap_laps, data_dir, year, meeting_key, union)
 
 
 def try_load(loader: Callable[..., BootstrapResult], *args: object) -> bool:

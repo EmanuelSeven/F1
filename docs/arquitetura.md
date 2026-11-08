@@ -53,6 +53,7 @@ As implementações concretas são compostas em dois pontos de entrada: a CLI (`
 - **Campos depreciados** (`country_code` em drivers, `pit_duration` em pit) não entram no silver.
 - **Resultados em lote.** `run_results` busca `drivers` e `session_result` de várias sessões numa só requisição (`session_key` repetido, até 25 por lote). A temporada inteira de corridas e sprints sai em 2 requisições, e a gravação continua no padrão do meeting: bronze por sessão, silver e quarentena por meeting.
 - **Tipos de sessão.** `classify_session` (domínio) classifica cada sessão em corrida, sprint, classificação ou treino; testes de pré-temporada ficam fora das análises por não terem corrida.
+- **Voltas por união de sessões.** A partição `laps` é por meeting e é regravada inteira a cada carga. A página *Voltas* e os detalhes da corrida regravam a união das sessões que já estão no lake com as novas, para que uma carga não apague as voltas da outra.
 - **Piloto, não número.** A classificação agrupa por piloto: quem trocou de número no ano (ex.: Bearman, #38 e #50 em 2024) aparece uma vez, com os pontos somados.
 - **Sprints.** Na OpenF1 a sprint tem `session_type="Race"` e `session_name="Sprint"`; `SessionRef.is_race`, `is_sprint` e `awards_points` encapsulam essa regra.
 - **Pontos** vêm de `session_results.points` (coluna adicionada nesta versão), que já inclui o ponto da volta mais rápida; vitórias e pódios contam apenas corridas principais.

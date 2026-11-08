@@ -65,6 +65,7 @@ SEASON_PAGE = PageFilters(
     "consideram sempre corridas e sprints.",
 )
 LAKE_PAGE = PageFilters(KindsFilter.HIDDEN)
+LAPS_PAGE = EDITABLE_PAGE  # "Voltas": o tipo de sessão escolhe as sessões
 
 
 @dataclass(frozen=True)

@@ -11,6 +11,8 @@ src/f1/
 │       ├── sidebar.py          # Barra lateral: marca, filtros e rodapé
 │       ├── data.py             # Leituras em cache e cargas sob demanda
 │       ├── season.py           # Página "Temporada" (principal)
+│       ├── laps.py             # Página "Voltas" (5 mais rápidas por circuito)
+│       ├── tables.py           # Tabelas com equipe colorida e destaque
 │       ├── lake.py             # Página "Data Lake"
 │       ├── charts.py           # Gráficos Plotly (DataFrame → Figure)
 │       ├── formatting.py       # Textos e números em português
@@ -27,7 +29,8 @@ src/f1/
 │   ├── normalize.py            # Colunas declaradas por dataset + casts
 │   ├── lineage.py              # _run_id, _ingested_at, _source
 │   ├── standings.py            # Pontos, vitórias, pódios, vencedores, KPIs
-│   └── filters.py              # SeasonFilter e aplicação dos filtros
+│   ├── filters.py              # SeasonFilter e aplicação dos filtros
+│   └── fastest_laps.py         # Voltas mais rápidas por circuito
 ├── quality/
 │   ├── schemas.py              # Um DataFrameSchema Pandera por dataset
 │   └── validation.py           # validate() → ValidationResult / DataQualityError

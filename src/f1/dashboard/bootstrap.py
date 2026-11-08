@@ -10,13 +10,14 @@ decide como exibir a falha.
 """
 
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Collection, Sequence
 from contextlib import AbstractContextManager
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
 from f1.config.settings import Settings
 from f1.dashboard.loaders import DETAIL_ENDPOINTS
+from f1.domain.endpoints import Endpoint
 from f1.domain.models import POINTS_KINDS, MeetingRef, SessionKind, SessionRef
 from f1.domain.ports import OpenF1Source
 from f1.ingestion.openf1_client import OpenF1Client
@@ -94,20 +95,60 @@ def run_season_bootstrap(
     )
 
 
-def _is_main_race(session: SessionRef) -> bool:
-    return session.is_race
-
-
 def run_race_details(
     settings: Settings,
     meeting: MeetingRef,
     source_factory: SourceFactory | None = None,
+    keep_sessions: Collection[int] = (),
 ) -> BootstrapResult:
-    """Voltas, stints, pit stops e clima da corrida principal de ``meeting``."""
+    """Voltas, stints, pit stops e clima da corrida principal de ``meeting``.
+
+    As partições são regravadas por meeting; ``keep_sessions`` são sessões que
+    já estão no lake (ex.: voltas da classificação) e devem continuar lá.
+    """
+    keep = {int(k) for k in keep_sessions}
+    return _load_meeting_sessions(
+        settings,
+        meeting,
+        DETAIL_ENDPOINTS,
+        lambda s: s.is_race or s.session_key in keep,
+        source_factory,
+    )
+
+
+def run_meeting_laps(
+    settings: Settings,
+    meeting: MeetingRef,
+    session_keys: Collection[int],
+    source_factory: SourceFactory | None = None,
+) -> BootstrapResult:
+    """Voltas das sessões ``session_keys`` de ``meeting``.
+
+    A partição ``laps`` do meeting passa a ter exatamente essas sessões; para
+    acrescentar sessões, passe a união com as que já estão no lake.
+    """
+    keys = {int(k) for k in session_keys}
+    return _load_meeting_sessions(
+        settings,
+        meeting,
+        (Endpoint.LAPS,),
+        lambda s: s.session_key in keys,
+        source_factory,
+    )
+
+
+def _load_meeting_sessions(
+    settings: Settings,
+    meeting: MeetingRef,
+    endpoints: Sequence[Endpoint],
+    session_filter: Callable[[SessionRef], bool],
+    source_factory: SourceFactory | None,
+) -> BootstrapResult:
     ctx = _context(
         settings,
-        "dashboard_race_details_started",
+        "dashboard_meeting_load_started",
         meeting_key=meeting.meeting_key,
+        endpoints=[e.value for e in endpoints],
     )
     with _factory(source_factory)(settings) as source:
         metrics = run_meeting(
@@ -115,13 +156,13 @@ def run_race_details(
             build_stores(settings),
             ctx,
             meeting,
-            DETAIL_ENDPOINTS,
-            session_filter=_is_main_race,
+            endpoints,
+            session_filter=session_filter,
         )
     return BootstrapResult(
         run_id=ctx.run_id,
         year=meeting.year,
         meetings=1,
-        sessions=1,
+        sessions=len(endpoints),
         records=sum(m.records_processed for m in metrics),
     )
