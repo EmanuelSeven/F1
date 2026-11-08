@@ -1,0 +1,22 @@
+# Ambiente
+.venv/
+.env
+
+# Cache e artefatos
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+site/
+dist/
+
+# Dados locais
+data/
+*.parquet
+*.csv
+
+# Ferramentas locais do assistente
+.claude/

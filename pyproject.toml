@@ -1,0 +1,118 @@
+[project]
+name = "f1"
+version = "0.1.0"
+description = "Pipeline de engenharia de dados que extrai dados históricos da OpenF1 API para um data lake local (bronze/silver)."
+authors = [
+    {name = "EmanuelSeven",email = "emanuel.seven@hotmail.com"}
+]
+readme = "README.md"
+requires-python = ">=3.13,<3.14"
+dependencies = [
+    "httpx (>=0.28,<1.0)",
+    "pandas (>=2.2,<3.0)",
+    "pyarrow (>=18.0,<30.0)",
+    "pandera (>=0.24,<1.0)",
+    "pydantic-settings (>=2.6,<3.0)"
+]
+
+[tool.poetry]
+packages = [{include = "f1", from = "src"}]
+
+[tool.poetry.group.docs]
+optional = true
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[dependency-groups]
+dev = [
+    "pytest (>=9.2.0,<10.0.0)",
+    "pytest-cov (>=7.1.0,<8.0.0)",
+    "ruff (>=0.17.4,<0.18.0)",
+    "pytest-mock (>=3.14,<4.0)",
+    "mypy (>=1.13,<3.0)",
+    "pre-commit (>=4.0,<6.0)",
+    "pandas-stubs (>=2.2,<3.0)"
+]
+docs = [
+    "mkdocs (>=1.6,<2.0)",
+    "mkdocs-material (>=9.5,<10.0)"
+]
+
+[tool.ruff]
+line-length = 88
+target-version = "py313"
+src = ["src", "tests"]
+extend-exclude = ["docs", "site"]
+
+[tool.ruff.lint]
+select = [
+    "E",    # pycodestyle (erros)
+    "W",    # pycodestyle (avisos)
+    "F",    # pyflakes
+    "I",    # isort (organização de imports)
+    "N",    # pep8-naming
+    "B",    # flake8-bugbear
+    "UP",   # pyupgrade
+    "ANN",  # flake8-annotations (type hints obrigatórios)
+    "T20",  # flake8-print (proíbe print)
+    "S",    # flake8-bandit (segurança)
+    "SIM",  # flake8-simplify
+    "TID",  # flake8-tidy-imports (imports absolutos)
+    "PL",   # pylint
+    "RUF",  # regras específicas do Ruff
+]
+ignore = []
+
+[tool.ruff.lint.per-file-ignores]
+"tests/**/*.py" = [
+    "S101",    # uso de assert é esperado em testes
+    "ANN",     # anotações não obrigatórias em testes
+    "PLR2004", # valores literais em asserções
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["f1"]
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+docstring-code-format = true
+
+[tool.mypy]
+python_version = "3.13"
+mypy_path = "src"
+packages = ["f1"]
+strict = true
+warn_unreachable = true
+pretty = true
+plugins = ["pydantic.mypy"]
+
+# pyarrow não publica type hints; liberado somente este módulo.
+[[tool.mypy.overrides]]
+module = ["pyarrow.*"]
+ignore_missing_imports = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = [
+    "--strict-markers",
+    "--cov=src/f1",
+    "--cov-report=term-missing",
+    "--cov-fail-under=50",
+]
+markers = [
+    "integration: testes que dependem de recursos externos",
+]
+
+[tool.coverage.run]
+source = ["src/f1"]
+branch = true
+
+[tool.coverage.report]
+show_missing = true
+skip_empty = true
