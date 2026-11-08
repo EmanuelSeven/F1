@@ -1,10 +1,16 @@
 """Tema visual: CSS customizado, cores e layout padrão dos gráficos."""
 
+import base64
+from functools import lru_cache
 from html import escape
+from pathlib import Path
 from typing import Any
 
 import streamlit as st
 
+HERO_PATH = Path(__file__).resolve().parents[1] / "assets" / "hero_red.svg"
+# Escurece a arte para o texto branco ter contraste em qualquer região.
+HERO_OVERLAY = "linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0.65))"
 SERIF = "'Iowan Old Style', 'Palatino Linotype', Georgia, 'Times New Roman', serif"
 GRID = "rgba(255, 255, 255, 0.07)"
 MUTED = "#9CA3AF"
@@ -74,6 +80,29 @@ CSS = f"""
     margin: 0.35rem 0 0.25rem 0;
   }}
   .kpi-caption {{ font-size: 0.8rem; opacity: 0.58; }}
+  .f1-hero {{
+    position: relative;
+    min-height: 240px;  /* altura mínima: o texto nunca é cortado */
+    border-radius: 18px;
+    padding: 2.2rem 2.4rem 1.9rem 2.4rem;
+    margin: 0.2rem 0 1.4rem 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    color: #FFFFFF;
+    background-color: #1A0F12;
+    background-size: cover;
+    background-position: right center;
+    background-repeat: no-repeat;
+    overflow: hidden;
+  }}
+  .f1-hero .f1-title {{ color: #FFFFFF; margin-bottom: 0.5rem; }}
+  .f1-hero .f1-summary {{ color: #FFFFFF; opacity: 0.95; margin: 0; }}
+  @media (max-width: 640px) {{
+    .f1-hero {{ min-height: 150px; padding: 1.3rem 1.2rem 1.1rem 1.2rem; }}
+    .f1-hero .f1-title {{ font-size: 1.7rem; }}
+    .f1-hero .f1-summary {{ font-size: 0.98rem; }}
+  }}
   .podium-card {{
     border: 1px solid rgba(255, 255, 255, 0.10);
     border-top: 4px solid var(--team, #9CA3AF);
@@ -199,3 +228,27 @@ def podium_card(place: str, driver: str, team: str, colour: str, time: str) -> s
         f'<div class="podium-time">{escape(time)}</div>'
         "</div>"
     )
+
+
+@lru_cache
+def hero_background(path: Path = HERO_PATH) -> str | None:
+    """Arte do banner como data URI base64 (``None`` se o arquivo não existir)."""
+    try:
+        data = path.read_bytes()
+    except OSError:
+        return None
+    encoded = base64.b64encode(data).decode("ascii")
+    return f"data:image/svg+xml;base64,{encoded}"
+
+
+def hero_html(title: str, summary_html: str | None, background: str | None) -> str:
+    """Cabeçalho da página: banner com fundo, ou o cabeçalho normal sem ele.
+
+    ``summary_html`` já vem escapado (frase-resumo com ``<strong>``).
+    """
+    title_html = f'<div class="f1-title">{escape(title)}</div>'
+    summary = f'<div class="f1-summary">{summary_html}</div>' if summary_html else ""
+    if background is None:
+        return title_html + summary
+    style = f"background-image: {HERO_OVERLAY}, url('{background}')"
+    return f'<div class="f1-hero" style="{style}">{title_html}{summary}</div>'

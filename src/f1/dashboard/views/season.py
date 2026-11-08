@@ -49,9 +49,10 @@ from f1.dashboard.views.tables import (
     table_styles,
     team_label,
 )
-from f1.dashboard.views.theme import kpi_card, section
+from f1.dashboard.views.theme import hero_background, hero_html, kpi_card, section
 from f1.domain.models import POINTS_KINDS, SessionKind
 from f1.processing.filters import SeasonFilter, SeasonView, season_view
+from f1.processing.nationality import flag_url
 from f1.processing.standings import (
     RACE,
     SeasonKpis,
@@ -64,6 +65,7 @@ from f1.processing.standings import (
 )
 
 PLOT_CONFIG = {"displayModeBar": False}
+FLAG_COLUMN = "Nac."  # bandeira (imagem) logo antes de "Vencedor"
 __all__ = [  # reexportados (usados por testes e outras páginas)
     "HIGHLIGHT_STYLE",
     "ROW_HEIGHT",
@@ -100,6 +102,7 @@ def winners_display(
     if with_session:
         columns["Sessão"] = [session_label(n) for n in winners["session_name"]]
     columns["Data"] = [format_day_month(d) for d in winners["date_start"]]
+    columns[FLAG_COLUMN] = [flag_url(c) for c in winners["country"]]
     columns["Vencedor"] = winners["acronym"]
     columns[TEAM_COLUMN] = [team_label(t) for t in winners["team"]]
     return pd.DataFrame(columns)
@@ -158,9 +161,10 @@ def selection_key(year: int, filt: SeasonFilter) -> str:
 # --- componentes -----------------------------------------------------------
 
 
-def _header(year: int) -> None:
+def _header(year: int, summary: str | None = None) -> None:
+    """Banner (hero) com título e frase-resumo; sem a arte, cabeçalho normal."""
     title = f"Fórmula 1 · temporada {year}"
-    st.markdown(f'<div class="f1-title">{title}</div>', unsafe_allow_html=True)
+    st.markdown(hero_html(title, summary, hero_background()), unsafe_allow_html=True)
 
 
 def _kpi_cards(kpis: SeasonKpis) -> None:
@@ -208,7 +212,12 @@ def _winners_column(view: SeasonView, year: int) -> pd.Series | None:
         key=selection_key(year, view.filter),
         selectable=True,
         highlight=view.highlighted_rows,
-        column_config={"Rod.": st.column_config.NumberColumn(width=56)},
+        column_config={
+            "Rod.": st.column_config.NumberColumn(width=56),
+            FLAG_COLUMN: st.column_config.ImageColumn(
+                FLAG_COLUMN, width=44, help="Nacionalidade do vencedor"
+            ),
+        },
     )
     return view.winners.iloc[rows[0]] if rows else None
 
@@ -376,7 +385,6 @@ def render_season() -> None:
     data_dir = get_settings().data_dir
     filters = current_filters()
     year = filters.year
-    _header(year)
     data = season_data(data_dir, year)
     view = season_view(
         data.results,
@@ -386,12 +394,10 @@ def render_season() -> None:
         season_filter(filters.season),
     )
     if view.all_winners.empty and view.standings.empty:
+        _header(year)
         st.info(f"Ainda não há resultados de corridas para {year}.")
         return
-    st.markdown(
-        f'<div class="f1-summary">{summary_html(view.kpis)}</div>',
-        unsafe_allow_html=True,
-    )
+    _header(year, summary_html(view.kpis))
     _kpi_cards(view.kpis)
     selected = _season_section(view, year)
     target = selected if selected is not None else view.focus_row()

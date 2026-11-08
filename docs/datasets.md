@@ -79,6 +79,7 @@ O campo depreciado `country_code` é descartado.
 | `team_name` | `string` | não | — |
 | `team_colour` | `string` | não | regex `^[0-9A-Fa-f]{6}$` |
 | `headshot_url` | `string` | não | — |
+| `country_code` | `string` | não | tamanho 3 |
 
 ## `session_results`
 

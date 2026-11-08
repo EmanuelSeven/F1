@@ -119,6 +119,7 @@ SCHEMAS: Mapping[Endpoint, pa.DataFrameSchema] = MappingProxyType(
                 "team_name": _opt("string"),
                 "team_colour": _opt("string", pa.Check.str_matches(HEX_COLOUR)),
                 "headshot_url": _opt("string"),
+                "country_code": _opt("string", pa.Check.str_length(3, 3)),
             },
         ),
         Endpoint.SESSION_RESULT: _schema(

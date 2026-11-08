@@ -22,6 +22,7 @@ from f1.domain.models import (
     classify_session,
     primary_kinds,
 )
+from f1.processing.nationality import nationality
 
 RACE = SessionKind.RACE.value
 SPRINT = SessionKind.SPRINT.value
@@ -155,6 +156,11 @@ def driver_info(drivers: pd.DataFrame) -> pd.DataFrame:
     last = drivers["last_name"].fillna("")
     full = (first + " " + last).str.strip()
     fallback = drivers["full_name"].fillna(drivers["driver_number"].astype("string"))
+    country_codes = (
+        drivers["country_code"]
+        if "country_code" in drivers
+        else pd.Series([None] * len(drivers), index=drivers.index)
+    )
     out = pd.DataFrame(
         {
             "session_key": drivers["session_key"],
@@ -163,6 +169,12 @@ def driver_info(drivers: pd.DataFrame) -> pd.DataFrame:
             "name": full.where(full != "", fallback).astype(str),
             "team": drivers["team_name"].fillna("—").astype(str),
             "colour": [team_colour(v) for v in drivers["team_colour"]],
+            "country": [
+                nationality(code, acronym)
+                for code, acronym in zip(
+                    country_codes, driver_acronyms(drivers), strict=True
+                )
+            ],
         }
     )
     return out.drop_duplicates(["session_key", "driver_number"], keep="last")
@@ -310,7 +322,7 @@ def race_winners(
     df["colour"] = df["colour"].fillna(FALLBACK_COLOUR)
     df = df.sort_values(["round", "date_start"], kind="stable").reset_index(drop=True)
     columns = ["round", "meeting_key", "session_key", "gp", "date_start"]
-    driver = ["driver_number", "acronym", "name", "team", "colour"]
+    driver = ["driver_number", "acronym", "name", "team", "colour", "country"]
     return df[[*columns, *driver, "session_name", "kind"]]
 
 

@@ -1,8 +1,9 @@
 """Normalização: registros brutos da API → DataFrame tipado por dataset.
 
 Cada dataset declara suas colunas (nome, tipo e obrigatoriedade). Campos não
-declarados, incluindo os depreciados (``country_code`` em drivers e
-``pit_duration`` em pit), são descartados.
+declarados são descartados, incluindo o depreciado ``pit_duration`` (pit).
+``country_code`` (drivers), também depreciado, é mantido como opcional para
+exibir a bandeira do piloto.
 """
 
 import json
@@ -100,6 +101,9 @@ COLUMNS: Mapping[Endpoint, tuple[Col, ...]] = MappingProxyType(
                 "team_name",
                 "team_colour",
                 "headshot_url",
+                # depreciado na OpenF1 (vazio a partir de 2026); usado só
+                # para a bandeira, com fallback por sigla
+                "country_code",
             ),
         ),
         Endpoint.SESSION_RESULT: (

@@ -370,3 +370,54 @@ def test_clear_filters_restores_session_kinds(policy_app):
     policy_app.sidebar.button[0].click().run()
 
     assert policy_app.multiselect(key="filter_kinds").value == ["race", "sprint"]
+
+
+# --- bandeira e banner na página Temporada --------------------------------
+
+
+def test_winners_table_shows_flag_before_winner(app):
+    table = app.dataframe[0].value
+    columns = list(table.columns)
+    assert columns.index("Nac.") == columns.index("Vencedor") - 1
+    assert table["Nac."].tolist() == ["https://flagcdn.com/w20/es.png"]
+    assert table["GP"].tolist() == ["Singapore"]  # coluna GP inalterada
+
+
+def test_flag_falls_back_to_acronym_or_stays_empty(monkeypatch, tmp_path, openf1_data):
+    data = as_season(openf1_data, 2024)
+    for driver in data[Endpoint.DRIVERS]:  # como em 2026: country_code vazio
+        driver["country_code"] = None
+        if driver["name_acronym"] == "VER":
+            driver["name_acronym"] = "CAM"  # sigla sem nacionalidade conhecida
+    winner = next(
+        r
+        for r in data[Endpoint.SESSION_RESULT]
+        if r["session_key"] == 9165 and r["driver_number"] == 55
+    )
+    winner["position"] = 1
+    app = _season_app(monkeypatch, tmp_path, data)
+
+    assert app.dataframe[0].value["Nac."].tolist() == ["https://flagcdn.com/w20/es.png"]
+    assert "CAM" in _chart_labels(app)  # sem bandeira, mas sem quebrar
+
+
+def test_season_header_is_a_hero_banner(monkeypatch, tmp_path, openf1_data):
+    monkeypatch.setattr(
+        "f1.dashboard.views.season.hero_background",
+        lambda: "data:image/svg+xml;base64,PHN2Zy8+",
+    )
+    app = _season_app(monkeypatch, tmp_path, as_season(openf1_data, 2024))
+    hero = next(m.value for m in app.markdown if 'class="f1-hero"' in m.value)
+    assert "background-image:" in hero and "data:image/svg+xml;base64," in hero
+    assert "Fórmula 1 · temporada 2024" in hero
+    assert "<strong>Carlos Sainz</strong> soma" in hero  # frase-resumo no banner
+
+
+def test_season_header_without_hero_file(monkeypatch, tmp_path, openf1_data):
+    monkeypatch.setattr("f1.dashboard.views.season.hero_background", lambda: None)
+    app = _season_app(monkeypatch, tmp_path, as_season(openf1_data, 2024))
+
+    html = _html(app)
+    assert 'class="f1-hero"' not in html
+    assert '<div class="f1-title">Fórmula 1 · temporada 2024</div>' in html
+    assert "<strong>Carlos Sainz</strong> soma" in html

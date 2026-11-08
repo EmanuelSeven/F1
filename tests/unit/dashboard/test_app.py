@@ -263,8 +263,22 @@ def test_winners_display_columns(populated_lake):
     winners = race_winners(data.results, data.sessions, data.meetings, data.drivers)
     display = winners_display(winners)
 
-    assert list(display.columns) == ["Rod.", "GP", "Data", "Vencedor", "Equipe"]
-    assert display.iloc[0].tolist() == [1, "Singapore", "17/09", "SAI", "■ Ferrari"]
+    assert list(display.columns) == [
+        "Rod.",
+        "GP",
+        "Data",
+        "Nac.",
+        "Vencedor",
+        "Equipe",
+    ]
+    assert display.iloc[0].tolist() == [
+        1,
+        "Singapore",  # coluna GP inalterada
+        "17/09",
+        "https://flagcdn.com/w20/es.png",  # country_code ESP
+        "SAI",
+        "■ Ferrari",
+    ]
 
 
 def test_race_details_quality_failure_shows_message(data_env, populated_lake, client):

@@ -182,13 +182,15 @@ def _winners() -> pd.DataFrame:
             "date_start": [datetime(2024, 3, 1, tzinfo=UTC)] * 2,
             "acronym": ["VER", "LEC"],
             "team": ["Red Bull Racing", "Ferrari"],
+            "country": ["nl", None],
         }
     )
 
 
 def test_winners_display_adds_session_column_when_needed():
     plain = winners_display(_winners())
-    assert list(plain.columns) == ["Rod.", "GP", "Data", "Vencedor", "Equipe"]
+    assert list(plain.columns) == ["Rod.", "GP", "Data", "Nac.", "Vencedor", "Equipe"]
+    assert plain["Nac."].tolist() == ["https://flagcdn.com/w20/nl.png", None]
     by_session = winners_display(_winners(), with_session=True)
     assert by_session["Sessão"].tolist() == ["Sprint", "Classificação"]
     assert by_session["Equipe"].tolist() == ["■ Red Bull Racing", "■ Ferrari"]

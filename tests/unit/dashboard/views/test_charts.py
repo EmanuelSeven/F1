@@ -117,3 +117,41 @@ def test_no_translate_script_marks_page_as_portuguese():
     assert 'setAttribute("lang", "pt-BR")' in NO_TRANSLATE_SCRIPT
     assert 'setAttribute("translate", "no")' in NO_TRANSLATE_SCRIPT
     assert "notranslate" in NO_TRANSLATE_SCRIPT
+
+
+# --- banner (hero) ---------------------------------------------------------
+
+
+def test_hero_background_embeds_svg_as_base64(tmp_path):
+    import base64  # noqa: PLC0415
+
+    from f1.dashboard.views.theme import HERO_PATH, hero_background  # noqa: PLC0415
+
+    assert HERO_PATH.name == "hero_red.svg"
+    art = tmp_path / "hero_red.svg"
+    art.write_text('<svg xmlns="http://www.w3.org/2000/svg"/>', encoding="utf-8")
+    uri = hero_background(art)
+    assert uri is not None and uri.startswith("data:image/svg+xml;base64,")
+    assert base64.b64decode(uri.split(",", 1)[1]).startswith(b"<svg")
+    assert hero_background(tmp_path / "missing.svg") is None
+
+
+def test_hero_css_keeps_art_on_the_right():
+    from f1.dashboard.views.theme import CSS  # noqa: PLC0415
+
+    hero_css = CSS[CSS.index(".f1-hero {") :]
+    assert "background-size: cover;" in hero_css
+    assert "background-position: right center;" in hero_css
+
+
+def test_hero_html_with_and_without_background():
+    from f1.dashboard.views.theme import hero_html  # noqa: PLC0415
+
+    banner = hero_html("Fórmula 1 · temporada 2024", "<strong>X</strong>", "data:x")
+    assert banner.startswith('<div class="f1-hero"')
+    assert "url('data:x')" in banner
+    assert '<div class="f1-title">Fórmula 1 · temporada 2024</div>' in banner
+    assert '<div class="f1-summary"><strong>X</strong></div>' in banner
+
+    plain = hero_html("Título <b>", None, None)
+    assert plain == '<div class="f1-title">Título &lt;b&gt;</div>'  # cabeçalho normal
