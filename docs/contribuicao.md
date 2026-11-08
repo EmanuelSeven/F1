@@ -21,6 +21,15 @@ poetry run pytest
 poetry run mkdocs build --strict
 ```
 
+Atalhos (taskipy) para o dia a dia:
+
+| Comando | Executa |
+|---|---|
+| `poetry run task format` | `ruff format .` + `ruff check . --fix` |
+| `poetry run task lint` | `ruff format --check .` + `ruff check .` + `mypy src` |
+| `poetry run task test` | `pytest -m "not integration"` |
+| `poetry run task docs` | `mkdocs serve` (requer `poetry install --with docs`) |
+
 - [ ] Testes adicionados/atualizados
 - [ ] Pipeline idempotente e com métricas de observabilidade
 - [ ] Validações de qualidade de dados aplicadas

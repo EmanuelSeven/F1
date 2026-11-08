@@ -43,6 +43,9 @@ docs = [
 
 [tool.taskipy.tasks]
 test = { cmd = "pytest -m \"not integration\"", help = "testes unitários com cobertura (mesmo comando da CI)" }
+lint = { cmd = "ruff format --check . && ruff check . && mypy src", help = "verifica formatação, lint e tipagem sem alterar arquivos" }
+format = { cmd = "ruff format . && ruff check . --fix", help = "formata o código e corrige lint/imports automaticamente" }
+docs = { cmd = "mkdocs serve", help = "servidor local da documentação (requer poetry install --with docs)" }
 
 [tool.ruff]
 line-length = 88

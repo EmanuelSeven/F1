@@ -21,15 +21,17 @@ Os dados ficam em `data/silver/<dataset>/season=YYYY[/meeting_key=N]/part-00000.
 ## Qualidade
 
 ```bash
-poetry run ruff format --check . && poetry run ruff check . && poetry run mypy src
-poetry run task test   # = pytest -m "not integration"
+poetry run task format   # ruff format + ruff check --fix
+poetry run task lint     # ruff format --check + ruff check + mypy
+poetry run task test     # pytest -m "not integration"
+poetry run task docs     # mkdocs serve (requer --with docs)
 ```
 
 ## Documentação
 
 ```bash
 poetry install --with docs
-poetry run mkdocs serve
+poetry run task docs
 ```
 
 Páginas em [`docs/`](docs/index.md): arquitetura, estrutura, execução local, dicionário de dados, testes e contribuição.
