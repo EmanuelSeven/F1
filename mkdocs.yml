@@ -1,0 +1,25 @@
+site_name: F1 — Documentação Técnica
+repo_url: https://github.com/EmanuelSeven/f1
+theme:
+  name: material
+  language: pt-BR
+  features:
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+    - search.highlight
+markdown_extensions:
+  - admonition
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.highlight
+  - pymdownx.superfences
+nav:
+  - Início: index.md
+  - Arquitetura: arquitetura.md
+  - Estrutura do projeto: estrutura.md
+  - Execução local: execucao-local.md
+  - Dicionário de dados: datasets.md
+  - Testes: testes.md
+  - Como contribuir: contribuicao.md
