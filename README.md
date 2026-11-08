@@ -22,7 +22,7 @@ Os dados ficam em `data/silver/<dataset>/season=YYYY[/meeting_key=N]/part-00000.
 
 ```bash
 poetry run ruff format --check . && poetry run ruff check . && poetry run mypy src
-poetry run pytest -m "not integration"
+poetry run task test   # = pytest -m "not integration"
 ```
 
 ## Documentação

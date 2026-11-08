@@ -33,12 +33,16 @@ dev = [
     "pytest-mock (>=3.14,<4.0)",
     "mypy (>=1.13,<3.0)",
     "pre-commit (>=4.0,<6.0)",
-    "pandas-stubs (>=2.2,<3.0)"
+    "pandas-stubs (>=2.2,<3.0)",
+    "taskipy (>=1.14,<2.0)"
 ]
 docs = [
     "mkdocs (>=1.6,<2.0)",
     "mkdocs-material (>=9.5,<10.0)"
 ]
+
+[tool.taskipy.tasks]
+test = { cmd = "pytest -m \"not integration\"", help = "testes unitários com cobertura (mesmo comando da CI)" }
 
 [tool.ruff]
 line-length = 88

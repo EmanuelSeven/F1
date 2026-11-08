@@ -12,6 +12,7 @@ O teste de integração é **pulado** quando a API responde `401` (sessão ao vi
 ## Comandos
 
 ```bash
+poetry run task test                       # atalho: unitários com cobertura (igual à CI)
 poetry run pytest                          # tudo, com cobertura (mínimo 50%)
 poetry run pytest -m "not integration"     # só unitários (usado na CI)
 poetry run pytest -m integration --no-cov  # só integração (requer internet)
