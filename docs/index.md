@@ -1,4 +1,4 @@
-# F1 — pipeline de dados da OpenF1
+# F1 — Dashboard
 
 O projeto `f1` extrai dados históricos (2023 em diante) da [OpenF1 API](https://openf1.org/docs/) — gratuita e sem autenticação — e os grava num data lake local em camadas:
 
