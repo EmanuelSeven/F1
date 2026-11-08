@@ -14,13 +14,48 @@ Datasets do núcleo da corrida: `meetings`, `sessions`, `drivers`, `session_resu
 
 ## Início rápido
 
-```bash
-poetry install
-poetry run python -m f1 calendar --year 2024
-poetry run python -m f1 meeting --meeting-key 1229
-```
+=== "Ingestão"
+
+    ```bash
+    poetry install
+    poetry run python -m f1 calendar --year 2024
+    poetry run python -m f1 meeting --meeting-key 1229
+    ```
+
+=== "Dashboard"
+
+    ```bash
+    poetry run task dashboard
+    ```
+
+=== "Documentação"
+
+    ```bash
+    poetry install --with docs
+    poetry run task docs
+    ```
 
 !!! warning "Sessões ao vivo"
     Durante uma sessão de F1 ao vivo a OpenF1 bloqueia **todo** o acesso gratuito (inclusive dados históricos) e responde `401`. O cliente lança `OpenF1AccessError` sem tentar de novo e sem sobrescrever partições; basta reexecutar depois que a sessão terminar.
 
-Continue em [Execução local](execucao-local.md) e no [Dicionário de dados](datasets.md).
+## Por onde seguir
+
+<div class="grid cards" markdown>
+
+-   :material-rocket-launch: **[Execução local](execucao-local.md)**
+
+    Instalação, variáveis de ambiente, CLI e dashboard.
+
+-   :material-sitemap: **[Arquitetura](arquitetura.md)**
+
+    Camadas, fluxo de dados e decisões de projeto.
+
+-   :material-table: **[Dicionário de dados](datasets.md)**
+
+    Colunas, tipos, chaves e partições de cada dataset silver.
+
+-   :material-test-tube: **[Testes](testes.md)**
+
+    Unitários, integração e metas de cobertura.
+
+</div>

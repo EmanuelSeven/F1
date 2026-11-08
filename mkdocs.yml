@@ -1,25 +1,84 @@
 site_name: F1 — Documentação Técnica
-repo_url: https://github.com/EmanuelSeven/f1
+site_description: Pipeline de dados da OpenF1 API para um data lake local (bronze/silver).
+repo_url: https://github.com/EmanuelSeven/F1
+repo_name: EmanuelSeven/F1
+edit_uri: edit/main/docs/
+copyright: Projeto f1 — dados da OpenF1 (não oficial, sem vínculo com a Fórmula 1)
+
 theme:
   name: material
   language: pt-BR
+  icon:
+    logo: material/flag-checkered
+    repo: fontawesome/brands/github
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: red
+      accent: red
+      toggle:
+        icon: material/weather-night
+        name: Mudar para o modo escuro
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: red
+      accent: red
+      toggle:
+        icon: material/weather-sunny
+        name: Mudar para o modo claro
   features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.tabs
     - navigation.sections
     - navigation.top
-    - content.code.copy
+    - navigation.footer
+    - toc.follow
+    - search.suggest
     - search.highlight
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+    - content.action.edit
+
+plugins:
+  - search:
+      lang: pt
+
 markdown_extensions:
+  - abbr
   - admonition
+  - attr_list
+  - def_list
+  - md_in_html
   - tables
   - toc:
       permalink: true
-  - pymdownx.highlight
-  - pymdownx.superfences
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+
 nav:
   - Início: index.md
-  - Arquitetura: arquitetura.md
-  - Estrutura do projeto: estrutura.md
-  - Execução local: execucao-local.md
-  - Dicionário de dados: datasets.md
-  - Testes: testes.md
-  - Como contribuir: contribuicao.md
+  - Guia:
+      - Execução local: execucao-local.md
+      - Testes: testes.md
+      - Como contribuir: contribuicao.md
+  - Referência:
+      - Arquitetura: arquitetura.md
+      - Estrutura do projeto: estrutura.md
+      - Dicionário de dados: datasets.md

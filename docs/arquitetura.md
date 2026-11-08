@@ -2,17 +2,17 @@
 
 ## Fluxo de dados
 
-```text
-OpenF1 API ──► ingestion (httpx) ──► bronze (JSON bruto, por partição)
-                                         │
-                                         ▼
-                              processing (normalização → DataFrame)
-                                         │
-                                         ▼
-                              quality (Pandera) ──► quarantine (rejeitados)
-                                         │
-                                         ▼
-                              storage silver (Parquet atômico, por partição)
+```mermaid
+flowchart LR
+    API[(OpenF1 API)] -->|httpx| ING[ingestion]
+    ING --> BRZ[/bronze<br/>JSON bruto/]
+    ING --> PRC[processing<br/>normalização]
+    PRC --> QLT{quality<br/>Pandera}
+    QLT -->|válidos| SLV[/silver<br/>Parquet/]
+    QLT -->|rejeitados| QRT[/quarentena<br/>Parquet/]
+    SLV -.-> DSH[dashboard<br/>Streamlit]
+    QRT -.-> DSH
+    BRZ -.-> DSH
 ```
 
 A unidade de trabalho é um **meeting** (fim de semana de GP). A pipeline de temporada carrega o calendário do ano e depois cada meeting já encerrado, em sequência.

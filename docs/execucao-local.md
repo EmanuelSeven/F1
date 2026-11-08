@@ -62,6 +62,24 @@ import pandas as pd
 laps = pd.read_parquet("data/silver/laps")  # partições viram colunas season/meeting_key
 ```
 
+## Documentação
+
+O site usa **MkDocs + Material** (modo claro/escuro, busca em português, diagramas Mermaid, abas e blocos de código com botão de cópia). As dependências ficam no grupo opcional `docs`:
+
+```bash
+poetry install --with docs
+poetry run task docs          # mkdocs serve → http://127.0.0.1:8000 (recarrega ao salvar)
+poetry run mkdocs build --strict   # build do site em site/, falhando em avisos (igual à CI)
+```
+
+| Atalho | Executa |
+|---|---|
+| `poetry run task docs` | `mkdocs serve` |
+| `poetry run task dashboard` | `streamlit run src/f1/dashboard.py` |
+| `poetry run task test` | `pytest -m "not integration"` |
+| `poetry run task lint` | `ruff format --check .` + `ruff check .` + `mypy` |
+| `poetry run task format` | `ruff format .` + `ruff check . --fix` |
+
 ## Dashboard
 
 Painel Streamlit com o estado do data lake em `F1_DATA_DIR`:
