@@ -28,7 +28,9 @@ jobs:
         run: poetry run ruff check .
 
       - name: Tipagem
-        run: poetry run mypy src
+        run: |
+          poetry run mypy src
+          poetry run mypy src/f1/dashboard.py
 
       - name: Testes
         run: poetry run pytest -m "not integration"

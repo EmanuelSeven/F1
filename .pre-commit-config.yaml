@@ -25,3 +25,12 @@ repos:
         language: system
         types: [python]
         pass_filenames: false
+
+      # src/f1/dashboard.py tem o mesmo nome de módulo do pacote f1/dashboard/,
+      # por isso `mypy src` não o enxerga; é checado à parte.
+      - id: mypy-dashboard
+        name: mypy (dashboard)
+        entry: poetry run mypy src/f1/dashboard.py
+        language: system
+        types: [python]
+        pass_filenames: false

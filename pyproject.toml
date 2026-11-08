@@ -34,7 +34,8 @@ dev = [
     "mypy (>=1.13,<3.0)",
     "pre-commit (>=4.0,<6.0)",
     "pandas-stubs (>=2.2,<3.0)",
-    "taskipy (>=1.14,<2.0)"
+    "taskipy (>=1.14,<2.0)",
+    "streamlit (>=1.67.0,<2.0.0)"
 ]
 docs = [
     "mkdocs (>=1.6,<2.0)",
@@ -43,9 +44,10 @@ docs = [
 
 [tool.taskipy.tasks]
 test = { cmd = "pytest -m \"not integration\"", help = "testes unitários com cobertura (mesmo comando da CI)" }
-lint = { cmd = "ruff format --check . && ruff check . && mypy src", help = "verifica formatação, lint e tipagem sem alterar arquivos" }
+lint = { cmd = "ruff format --check . && ruff check . && mypy src && mypy src/f1/dashboard.py", help = "verifica formatação, lint e tipagem sem alterar arquivos" }
 format = { cmd = "ruff format . && ruff check . --fix", help = "formata o código e corrige lint/imports automaticamente" }
 docs = { cmd = "mkdocs serve", help = "servidor local da documentação (requer poetry install --with docs)" }
+dashboard = { cmd = "streamlit run src/f1/dashboard.py", help = "dashboard Streamlit do data lake" }
 
 [tool.ruff]
 line-length = 88

@@ -62,5 +62,23 @@ import pandas as pd
 laps = pd.read_parquet("data/silver/laps")  # partições viram colunas season/meeting_key
 ```
 
+## Dashboard
+
+Painel Streamlit com o estado do data lake em `F1_DATA_DIR`:
+
+```bash
+poetry run streamlit run src/f1/dashboard.py
+# ou
+poetry run task dashboard
+```
+
+Abre em <http://localhost:8501> e mostra:
+
+- **Métricas gerais:** arquivos na bronze, registros processados (silver), registros rejeitados (quarentena), último `run_id` e data/hora da última execução (UTC).
+- **Estado das camadas:** para bronze, silver e quarentena: se existe, quantidade de arquivos, datasets e tamanho.
+- **Datasets silver:** partições, registros, rejeitados e última execução de cada dataset.
+
+Os números ficam em cache por 60 s; o botão **Recarregar dados** força uma nova leitura. Se ainda não houver dados, o painel sugere rodar a CLI primeiro.
+
 !!! note "Sessões ao vivo"
     Se o comando falhar com `OpenF1AccessError` (HTTP 401), há uma sessão de F1 ao vivo em andamento e a OpenF1 bloqueou o acesso gratuito. Reexecute quando ela terminar.

@@ -3,6 +3,8 @@
 ```text
 src/f1/
 ├── __main__.py                 # CLI e composição das dependências
+├── dashboard.py                # Dashboard Streamlit (somente apresentação)
+├── dashboard/loaders.py        # Leitura e agregação do lake para o dashboard
 ├── config/settings.py          # Settings (pydantic-settings, prefixo F1_)
 ├── domain/
 │   ├── endpoints.py            # Endpoint, DatasetSpec, chaves e partições

@@ -28,6 +28,9 @@ A unidade de trabalho é um **meeting** (fim de semana de GP). A pipeline de tem
 | `storage` | Bronze JSON, silver Parquet e quarentena | `domain` |
 | `pipelines` | Orquestração `calendar` → `meeting` → `season` | todas |
 | `config` / `utils` | Settings, logging JSON, métricas, datas | — |
+| `dashboard` (apresentação) | `dashboard/loaders.py` lê e agrega o lake (sem visualização); `dashboard.py` só renderiza com Streamlit | `domain`, `storage`, `config` |
+
+O dashboard é somente leitura: não executa pipelines nem regras de negócio. `dashboard.py` não acessa arquivos; toda leitura passa por `f1.dashboard.loaders`. Como o arquivo e o pacote compartilham o nome `f1.dashboard`, o `dashboard.py` é executado pelo caminho (`streamlit run`) e checado pelo MyPy em uma etapa própria.
 
 A composição das implementações concretas acontece apenas em `src/f1/__main__.py`. As pipelines recebem a fonte e os stores por parâmetro, o que permite testá-las com uma fonte falsa em memória.
 

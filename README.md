@@ -18,6 +18,14 @@ Os dados ficam em `data/silver/<dataset>/season=YYYY[/meeting_key=N]/part-00000.
 
 > Durante sessões de F1 ao vivo a OpenF1 bloqueia o acesso gratuito (HTTP 401). Reexecute depois que a sessão terminar.
 
+## Dashboard
+
+```bash
+poetry run streamlit run src/f1/dashboard.py   # ou: poetry run task dashboard
+```
+
+Mostra arquivos na bronze, registros processados e rejeitados, último `run_id`, última execução e o estado de cada camada. Detalhes em [Execução local](docs/execucao-local.md#dashboard).
+
 ## Qualidade
 
 ```bash
@@ -25,6 +33,7 @@ poetry run task format   # ruff format + ruff check --fix
 poetry run task lint     # ruff format --check + ruff check + mypy
 poetry run task test     # pytest -m "not integration"
 poetry run task docs     # mkdocs serve (requer --with docs)
+poetry run task dashboard  # streamlit run src/f1/dashboard.py
 ```
 
 ## Documentação
