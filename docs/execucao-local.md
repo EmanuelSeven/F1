@@ -96,7 +96,9 @@ Abre em <http://localhost:8501> e mostra:
 - **Estado das camadas:** para bronze, silver e quarentena: se existe, quantidade de arquivos, datasets e tamanho.
 - **Datasets silver:** partições, registros, rejeitados e última execução de cada dataset.
 
-Os números ficam em cache por 60 s; o botão **Recarregar dados** força uma nova leitura. Se ainda não houver dados, o painel sugere rodar a CLI primeiro.
+Os números ficam em cache por 60 s; o botão **Recarregar dados** força uma nova leitura.
+
+**Carga inicial automática.** Se `F1_DATA_DIR` estiver vazio, o dashboard executa na inicialização a pipeline `calendar` de **2024** (equivalente a `python -m f1 calendar --year 2024`), com o aviso *"Carregando dados da OpenF1..."*. A carga roda uma única vez por processo do Streamlit (`st.cache_resource`). Se a OpenF1 negar o acesso (`OpenF1AccessError`, comum durante sessões ao vivo) ou houver outra falha de rede, o painel mostra uma mensagem e tenta de novo no próximo recarregamento da página, porque falhas não ficam em cache.
 
 !!! note "Sessões ao vivo"
     Se o comando falhar com `OpenF1AccessError` (HTTP 401), há uma sessão de F1 ao vivo em andamento e a OpenF1 bloqueou o acesso gratuito. Reexecute quando ela terminar.

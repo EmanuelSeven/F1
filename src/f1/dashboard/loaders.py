@@ -78,6 +78,14 @@ def iter_data_files(base: Path, pattern: str) -> Iterator[Path]:
             yield path
 
 
+def is_lake_empty(data_dir: Path) -> bool:
+    """``True`` se nenhuma camada tiver arquivos de dados."""
+    return not any(
+        next(iter_data_files(layer_path(data_dir, layer), pattern), None)
+        for layer, pattern in _LAYER_PATTERNS.items()
+    )
+
+
 def load_layer_status(data_dir: Path, layer: str) -> LayerStatus:
     """Quantidade de arquivos, datasets e tamanho de uma camada."""
     base = layer_path(data_dir, layer)
