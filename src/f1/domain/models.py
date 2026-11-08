@@ -10,6 +10,12 @@ type FilterScalar = str | int | float | bool | datetime
 
 LATEST = "latest"
 
+# Colunas técnicas de linhagem e quarentena (SKILL §8.4 e §10.2).
+RUN_ID = "_run_id"
+INGESTED_AT = "_ingested_at"
+SOURCE = "_source"
+REJECT_REASON = "_reject_reason"
+
 
 class Operator(StrEnum):
     EQ = "="

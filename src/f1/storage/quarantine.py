@@ -5,11 +5,10 @@ from pathlib import Path
 
 import pandas as pd
 
-from f1.domain.models import Partition
+from f1.domain.models import REJECT_REASON, RUN_ID, Partition
 from f1.storage.parquet_writer import ParquetDatasetStore, write_partition
 
-REJECT_REASON = "_reject_reason"
-REQUIRED_COLUMNS = (REJECT_REASON, "_run_id")
+REQUIRED_COLUMNS = (REJECT_REASON, RUN_ID)
 
 
 class QuarantineStore(ParquetDatasetStore):

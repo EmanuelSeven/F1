@@ -1,0 +1,4 @@
+[
+  {"meeting_key": 1219, "meeting_name": "Singapore Grand Prix", "meeting_official_name": "FORMULA 1 SINGAPORE AIRLINES SINGAPORE GRAND PRIX 2023", "location": "Marina Bay", "country_key": 157, "country_code": "SGP", "country_name": "Singapore", "circuit_key": 61, "circuit_short_name": "Singapore", "date_start": "2023-09-15T09:30:00+00:00", "date_end": "2023-09-17T14:00:00+00:00", "gmt_offset": "08:00:00", "year": 2023, "is_cancelled": false},
+  {"meeting_key": 1210, "meeting_name": "Emilia Romagna Grand Prix", "meeting_official_name": "FORMULA 1 GRAN PREMIO DEL MADE IN ITALY E DELL'EMILIA-ROMAGNA 2023", "location": "Imola", "country_key": 13, "country_code": "ITA", "country_name": "Italy", "circuit_key": 6, "circuit_short_name": "Imola", "date_start": "2023-05-19T11:30:00+00:00", "date_end": "2023-05-21T15:00:00+00:00", "gmt_offset": "02:00:00", "year": 2023, "is_cancelled": true}
+]
