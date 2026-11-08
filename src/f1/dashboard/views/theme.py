@@ -74,6 +74,19 @@ CSS = f"""
     margin: 0.35rem 0 0.25rem 0;
   }}
   .kpi-caption {{ font-size: 0.8rem; opacity: 0.58; }}
+  .podium-card {{
+    border: 1px solid rgba(255, 255, 255, 0.10);
+    border-top: 4px solid var(--team, #9CA3AF);
+    border-radius: 14px;
+    padding: 0.9rem 1.15rem 1rem 1.15rem;
+    background: rgba(255, 255, 255, 0.025);
+    height: 100%;
+  }}
+  .podium-place {{ font-family: {SERIF}; font-size: 1.9rem; font-weight: 600; }}
+  .podium-driver {{ font-size: 1.15rem; font-weight: 650; margin-top: 0.1rem; }}
+  .podium-team {{ font-size: 0.85rem; font-weight: 600; margin: 0.1rem 0 0.5rem 0; }}
+  .podium-time {{ font-family: {SERIF}; font-size: 1.35rem; }}
+  .f1-date {{ font-size: 0.95rem; opacity: 0.7; margin: -0.2rem 0 0.2rem 0; }}
   .f1-brand {{
     font-size: 1.15rem;
     font-weight: 800;
@@ -174,3 +187,15 @@ def base_layout(height: int, **overrides: Any) -> dict[str, Any]:  # noqa: ANN40
         layout[axis] = {**AXIS_DEFAULTS, **overrides.pop(axis, {})}
     layout.update(overrides)
     return layout
+
+
+def podium_card(place: str, driver: str, team: str, colour: str, time: str) -> str:
+    """HTML de um cartão do pódio, com a cor da equipe."""
+    return (
+        f'<div class="podium-card" style="--team: {escape(colour)}">'
+        f'<div class="podium-place">{escape(place)}</div>'
+        f'<div class="podium-driver">{escape(driver)}</div>'
+        f'<div class="podium-team" style="color: {escape(colour)}">{escape(team)}</div>'
+        f'<div class="podium-time">{escape(time)}</div>'
+        "</div>"
+    )

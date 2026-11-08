@@ -7,12 +7,14 @@ compartilhar o link. A interpretação dos filtros está em
 """
 
 from collections.abc import Sequence
+from copy import copy
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import Path
 
 import streamlit as st
+from streamlit.navigation.page import StreamlitPage
 
 from f1.dashboard.bootstrap import BOOTSTRAP_YEAR, FIRST_SEASON
 from f1.dashboard.views.data import ensure_season, lake_summary, season_data
@@ -56,6 +58,9 @@ class PageFilters:
 
     kinds: KindsFilter = KindsFilter.EDITABLE
     note: str | None = None
+    season: bool = True  # usa o filtro de temporada
+    details: bool = True  # usa Grande Prêmio e equipe/piloto
+    season_note: str | None = None
 
 
 EDITABLE_PAGE = PageFilters()
@@ -66,6 +71,20 @@ SEASON_PAGE = PageFilters(
 )
 LAKE_PAGE = PageFilters(KindsFilter.HIDDEN)
 LAPS_PAGE = EDITABLE_PAGE  # "Voltas": o tipo de sessão escolhe as sessões
+LATEST_PAGE = PageFilters(
+    KindsFilter.HIDDEN,
+    season=False,
+    details=False,
+    season_note=(
+        "Não se aplica a esta página: ela mostra sempre a corrida concluída "
+        "mais recente."
+    ),
+)
+_DETAIL_DEFAULTS: tuple[tuple[str, object], ...] = (
+    (KEY_GP, None),
+    (KEY_TEAMS, []),
+    (KEY_DRIVERS, []),
+)
 
 
 @dataclass(frozen=True)
@@ -98,11 +117,12 @@ def selected_kinds(values: Sequence[str]) -> tuple[SessionKind, ...]:
 
 def reset_filters() -> None:
     """Callback de "Limpar filtros": volta tudo ao padrão, exceto a temporada."""
-    st.session_state[KEY_KINDS_SAVED] = list(DEFAULT_KINDS)
-    st.session_state[KEY_KINDS] = list(DEFAULT_KINDS)
-    st.session_state[KEY_GP] = None
-    st.session_state[KEY_TEAMS] = []
-    st.session_state[KEY_DRIVERS] = []
+    state = st.session_state
+    state[KEY_KINDS_SAVED] = list(DEFAULT_KINDS)
+    state[KEY_KINDS] = list(DEFAULT_KINDS)
+    for key, empty in _DETAIL_DEFAULTS:
+        state[key] = copy(empty)
+        state[_saved(key)] = copy(empty)
 
 
 def current_filters() -> DashboardFilters:
@@ -111,15 +131,34 @@ def current_filters() -> DashboardFilters:
     return value if isinstance(value, DashboardFilters) else DashboardFilters()
 
 
+def _saved(key: str) -> str:
+    """Chave que guarda o valor de um filtro fora do widget.
+
+    O Streamlit descarta o estado de widgets que não são desenhados numa
+    execução; como alguns filtros somem em certas páginas, o valor também fica
+    numa chave comum, restaurada quando o widget volta.
+    """
+    return f"{key}_saved"
+
+
+def _restore(key: str, empty: object) -> None:
+    state = st.session_state
+    if key not in state:
+        state[key] = copy(state.get(_saved(key), empty))
+
+
+def _remember(key: str, value: object) -> None:
+    st.session_state[_saved(key)] = copy(value)
+
+
 def _init_state(options: Sequence[int]) -> None:
     state = st.session_state
     if KEY_SEASON not in state:
         state[KEY_SEASON] = initial_year(options, st.query_params.get(QUERY_YEAR))
     if KEY_KINDS_SAVED not in state:
         state[KEY_KINDS_SAVED] = list(DEFAULT_KINDS)
-    for key, empty in ((KEY_GP, None), (KEY_TEAMS, []), (KEY_DRIVERS, [])):
-        if key not in state:
-            state[key] = empty
+    for key, empty in _DETAIL_DEFAULTS:
+        _restore(key, empty)
 
 
 def _keep_valid(key: str, valid: Sequence[object]) -> None:
@@ -132,12 +171,7 @@ def _keep_valid(key: str, valid: Sequence[object]) -> None:
 
 
 def _kinds_filter(page: PageFilters) -> tuple[SessionKind, ...]:
-    """Desenha (ou não) o filtro "Tipo de sessão" e retorna os tipos efetivos.
-
-    A escolha do usuário fica em ``KEY_KINDS_SAVED``: o Streamlit descarta o
-    estado de widgets que não são desenhados numa execução, e o filtro some ou
-    trava em algumas páginas.
-    """
+    """Desenha (ou não) o filtro "Tipo de sessão" e retorna os tipos efetivos."""
     options = [k.value for k in KIND_ORDER]
     if page.kinds is KindsFilter.HIDDEN:
         return POINTS_KINDS
@@ -167,68 +201,105 @@ def _kinds_filter(page: PageFilters) -> tuple[SessionKind, ...]:
     return selected_kinds(values)
 
 
-def render_sidebar_filters(
-    data_dir: Path, page: PageFilters = EDITABLE_PAGE
-) -> DashboardFilters:
-    """Desenha a marca e os filtros da ``page``; carrega a temporada se preciso."""
-    options = season_options(datetime.now(UTC))
-    _init_state(options)
-    with st.sidebar:
-        st.markdown(BRAND_HTML, unsafe_allow_html=True)
-        st.markdown(
-            '<div class="f1-sidebar-title">Filtros</div>', unsafe_allow_html=True
-        )
-        year = int(st.selectbox("Temporada", options, key=KEY_SEASON))
-        kinds = _kinds_filter(page)
-    st.query_params[QUERY_YEAR] = str(year)
+def _navigation(pages: Sequence[StreamlitPage]) -> None:
+    """Links das páginas (a navegação fica na barra lateral, acima dos filtros)."""
+    for page in pages:
+        st.page_link(page, label=page.title, icon=page.icon or None)
+    st.divider()
 
-    ensure_season(data_dir, year, kinds)  # mensagens aparecem na área principal
+
+def _detail_filters(
+    data_dir: Path, year: int
+) -> tuple[int | None, list[str], list[int]]:
+    """Grande Prêmio e equipe/piloto (opções dependentes do ano)."""
     data = season_data(data_dir, year)
     gps = grand_prix_options(data.sessions, data.meetings)
     gp_labels = dict(zip(gps["meeting_key"].astype(int), gps["label"], strict=True))
     teams = team_options(data.drivers)
 
-    with st.sidebar:
-        _keep_valid(KEY_GP, list(gp_labels))
-        meeting_key = st.selectbox(
-            "Grande Prêmio",
-            [None, *gp_labels],
-            format_func=lambda k: "Todos" if k is None else gp_labels[k],
-            key=KEY_GP,
+    _keep_valid(KEY_GP, list(gp_labels))
+    meeting_key = st.selectbox(
+        "Grande Prêmio",
+        [None, *gp_labels],
+        format_func=lambda k: "Todos" if k is None else gp_labels[k],
+        key=KEY_GP,
+    )
+    _remember(KEY_GP, meeting_key)
+    _keep_valid(KEY_TEAMS, teams)
+    has_people = bool(st.session_state[KEY_TEAMS] or st.session_state[KEY_DRIVERS])
+    with st.expander("Equipe e piloto", expanded=has_people):
+        chosen_teams = st.multiselect(
+            "Equipes", teams, key=KEY_TEAMS, placeholder="Todas"
         )
-        _keep_valid(KEY_TEAMS, teams)
-        has_people = bool(st.session_state[KEY_TEAMS] or st.session_state[KEY_DRIVERS])
-        with st.expander("Equipe e piloto", expanded=has_people):
-            chosen_teams = st.multiselect(
-                "Equipes", teams, key=KEY_TEAMS, placeholder="Todas"
+        _remember(KEY_TEAMS, chosen_teams)
+        people = driver_options(data.drivers, data.sessions, chosen_teams)
+        labels = {
+            int(n): f"{a} · {name}"
+            for n, a, name in zip(
+                people["driver_number"], people["acronym"], people["name"], strict=True
             )
-            people = driver_options(data.drivers, data.sessions, chosen_teams)
-            labels = {
-                int(n): f"{a} · {name}"
-                for n, a, name in zip(
-                    people["driver_number"],
-                    people["acronym"],
-                    people["name"],
-                    strict=True,
-                )
-            }
-            _keep_valid(KEY_DRIVERS, list(labels))
-            chosen_drivers = st.multiselect(
-                "Pilotos",
-                list(labels),
-                format_func=lambda n: labels[n],
-                key=KEY_DRIVERS,
-                placeholder="Todos",
+        }
+        _keep_valid(KEY_DRIVERS, list(labels))
+        chosen_drivers = st.multiselect(
+            "Pilotos",
+            list(labels),
+            format_func=lambda n: labels[n],
+            key=KEY_DRIVERS,
+            placeholder="Todos",
+        )
+        _remember(KEY_DRIVERS, chosen_drivers)
+    st.button("Limpar filtros", on_click=reset_filters, width="stretch")
+    return meeting_key, list(chosen_teams), [int(n) for n in chosen_drivers]
+
+
+def render_sidebar_filters(
+    data_dir: Path,
+    page: PageFilters = EDITABLE_PAGE,
+    pages: Sequence[StreamlitPage] = (),
+) -> DashboardFilters:
+    """Desenha marca, navegação (``pages``) e os filtros que a ``page`` usa.
+
+    Carrega a temporada escolhida se a página depender dela.
+    """
+    options = season_options(datetime.now(UTC))
+    _init_state(options)
+    with st.sidebar:
+        st.markdown(BRAND_HTML, unsafe_allow_html=True)
+        if pages:
+            _navigation(pages)
+        st.markdown(
+            '<div class="f1-sidebar-title">Filtros</div>', unsafe_allow_html=True
+        )
+        year = int(
+            st.selectbox(
+                "Temporada",
+                options,
+                key=KEY_SEASON,
+                disabled=not page.season,
+                help=None if page.season else page.season_note,
             )
-        st.button("Limpar filtros", on_click=reset_filters, width="stretch")
+        )
+        if not page.season and page.season_note:
+            st.caption(page.season_note)
+        kinds = _kinds_filter(page)
+    st.query_params[QUERY_YEAR] = str(year)
+
+    meeting_key: int | None = None
+    teams: list[str] = []
+    drivers: list[int] = []
+    if page.season:
+        ensure_season(data_dir, year, kinds)  # mensagens aparecem na área principal
+    if page.season and page.details:
+        with st.sidebar:
+            meeting_key, teams, drivers = _detail_filters(data_dir, year)
 
     filters = DashboardFilters(
         year=year,
         season=SeasonFilter(
             kinds=kinds,
             meeting_key=meeting_key,
-            teams=tuple(chosen_teams),
-            drivers=tuple(int(n) for n in chosen_drivers),
+            teams=tuple(teams),
+            drivers=tuple(drivers),
         ),
     )
     st.session_state[KEY_STATE] = filters

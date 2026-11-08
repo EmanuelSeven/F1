@@ -229,3 +229,55 @@ def _filtered_sentence(kpis: SeasonKpis, count: int, noun: str, points: str) -> 
     progress = f" {_progress(kpis)}" if kpis.in_progress else ""
     leader = f"**{kpis.leader_name}** lidera a seleção com **{points}** pontos"
     return f"{leader}{progress}; {tail}."
+
+
+GAINED_COLOUR = "#22C55E"
+LOST_COLOUR = "#EF4444"
+
+
+def format_change(change: object) -> str:
+    """Variação de posições: ``3`` → ``"▲ 3"``, ``-2`` → ``"▼ 2"``, ``0`` → ``"="``."""
+    if _is_missing(change):
+        return "—"
+    value = int(str(change))
+    if value > 0:
+        return f"▲ {value}"
+    if value < 0:
+        return f"▼ {-value}"
+    return "="
+
+
+def change_style(change: object) -> str:
+    """CSS da variação: verde quando ganhou, vermelho quando perdeu."""
+    if _is_missing(change) or int(str(change)) == 0:
+        return ""
+    return f"color: {GAINED_COLOUR if int(str(change)) > 0 else LOST_COLOUR}"
+
+
+def format_gap_laps(gap: object) -> str:
+    """Diferença com voltas no padrão da F1: ``"+1 LAP"``, ``"+2 LAPS"``."""
+    if _is_missing(gap):
+        return "—"
+    laps = _LAPS_BEHIND.match(str(gap).strip())
+    if laps:
+        n = int(laps.group(1))
+        return f"+{n} LAP" if n == 1 else f"+{n} LAPS"
+    return format_gap(gap)
+
+
+def format_finish(position: object, duration: object, gap: object) -> str:
+    """Tempo do vencedor ou diferença dos demais (com ``+N LAP``)."""
+    if not _is_missing(position) and int(str(position)) == 1:
+        return format_race_time(duration)
+    return format_gap_laps(gap)
+
+
+def status_code(dnf: object, dns: object, dsq: object) -> str:
+    """Situação no padrão da F1: ``DSQ``, ``DNS``, ``DNF`` ou vazio."""
+    if dsq is True:
+        return "DSQ"
+    if dns is True:
+        return "DNS"
+    if dnf is True:
+        return "DNF"
+    return ""

@@ -10,7 +10,7 @@ O projeto `f1` extrai dados históricos (2023 em diante) da [OpenF1 API](https:/
 
 ## Escopo da v0.1
 
-Datasets do núcleo da corrida: `meetings`, `sessions`, `drivers`, `session_results`, `laps`, `stints`, `pit_stops` e `weather`. Telemetria (`car_data`, `location`, `position`, `intervals`), `team_radio`, `overtakes`, `race_control`, `starting_grid`, endpoints de campeonato (beta) e dados em tempo real (pagos) estão fora do escopo.
+Datasets do núcleo da corrida: `meetings`, `sessions`, `drivers`, `session_results`, `laps`, `stints`, `pit_stops`, `weather` e `starting_grid` (grade de largada). Telemetria (`car_data`, `location`, `position`, `intervals`), `team_radio`, `overtakes`, `race_control`, endpoints de campeonato (beta) e dados em tempo real (pagos) estão fora do escopo.
 
 ## Início rápido
 

@@ -176,6 +176,14 @@ SCHEMAS: Mapping[Endpoint, pa.DataFrameSchema] = MappingProxyType(
                 "stop_duration": _opt("Float64", _range(0, 120, include_min=False)),
             },
         ),
+        Endpoint.STARTING_GRID: _schema(
+            Endpoint.STARTING_GRID,
+            {
+                **_session_keys(),
+                "position": _opt("Int64", _range(1, 30)),
+                "lap_duration": _opt("Float64", _range(0, 600, include_min=False)),
+            },
+        ),
         Endpoint.WEATHER: _schema(
             Endpoint.WEATHER,
             {

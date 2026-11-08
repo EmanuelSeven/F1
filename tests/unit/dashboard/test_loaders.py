@@ -103,7 +103,7 @@ def test_tables_have_one_row_per_item(populated_lake):
     summary = load_platform_summary(populated_lake)
 
     datasets = datasets_table(summary)
-    assert len(datasets) == 8
+    assert len(datasets) == 9  # inclui starting_grid
     assert datasets.set_index("dataset").loc["laps", "rejeitados"] == 1
     layers = layers_table(summary)
     assert layers["camada"].tolist() == ["bronze", "silver", "quarantine"]

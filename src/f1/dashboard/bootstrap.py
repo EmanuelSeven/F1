@@ -25,7 +25,7 @@ from f1.pipelines.calendar import load_calendar
 from f1.pipelines.common import RunContext
 from f1.pipelines.factory import build_stores
 from f1.pipelines.meeting import run_meeting
-from f1.pipelines.results import run_results
+from f1.pipelines.results import run_meeting_grid, run_results
 from f1.utils.metrics import new_run_id
 
 logger = logging.getLogger(__name__)
@@ -165,4 +165,25 @@ def _load_meeting_sessions(
         meetings=1,
         sessions=len(endpoints),
         records=sum(m.records_processed for m in metrics),
+    )
+
+
+def run_grid(
+    settings: Settings,
+    year: int,
+    meeting_key: int,
+    source_factory: SourceFactory | None = None,
+) -> BootstrapResult:
+    """Grade de largada de um meeting (uma requisição)."""
+    ctx = _context(settings, "dashboard_grid_started", meeting_key=meeting_key)
+    with _factory(source_factory)(settings) as source:
+        metrics = run_meeting_grid(
+            source, build_stores(settings), ctx, year, meeting_key
+        )
+    return BootstrapResult(
+        run_id=ctx.run_id,
+        year=year,
+        meetings=1,
+        sessions=0,
+        records=metrics.records_processed,
     )

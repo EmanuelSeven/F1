@@ -438,3 +438,16 @@ def test_view_marks_season_in_progress(season):
 
     done = season_view(*args, SeasonFilter(), now=datetime(2024, 1, 1, tzinfo=UTC))
     assert not done.kpis.in_progress
+
+
+def test_finished_kinds_only_counts_sessions_already_held(season):
+    from f1.processing.standings import finished_kinds  # noqa: PLC0415
+
+    after = finished_kinds(season["sessions"], datetime(2024, 1, 1, tzinfo=UTC))
+    assert after == {SessionKind.RACE, SessionKind.SPRINT, SessionKind.QUALIFYING}
+    before = finished_kinds(season["sessions"], datetime(2023, 9, 16, 12, tzinfo=UTC))
+    assert before == {SessionKind.SPRINT}  # só a sprint (08:00) já tinha acontecido
+    sprintless = season["sessions"].loc[season["sessions"]["session_name"] != "Sprint"]
+    assert SessionKind.SPRINT not in finished_kinds(
+        sprintless, datetime(2024, 1, 1, tzinfo=UTC)
+    )

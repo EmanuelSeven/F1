@@ -184,3 +184,17 @@ O campo depreciado `pit_duration` é descartado.
 | `wind_speed` | `Float64` | não | [0, 50] |
 | `wind_direction` | `Int64` | não | [0, 360] |
 | `rainfall` | `boolean` | não | — |
+
+## `starting_grid`
+
+- Endpoint: `/starting_grid`
+- Chave de negócio (única): `session_key, driver_number`
+- Partição: `season=YYYY/meeting_key=N`
+
+| Coluna | Tipo | Obrigatória | Regras |
+|---|---|---|---|
+| `session_key` | `Int64` | sim | >= 1 |
+| `meeting_key` | `Int64` | sim | >= 1 |
+| `driver_number` | `Int64` | sim | [1, 99] |
+| `position` | `Int64` | não | [1, 30] |
+| `lap_duration` | `Float64` | não | (0, 600] |

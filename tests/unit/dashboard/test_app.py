@@ -20,6 +20,7 @@ from tests.unit.dashboard.conftest import (
     FailingClient,
     StubClient,
     as_season,
+    season_page_script,
 )
 
 APP = Path(__file__).parents[3] / "src" / "f1" / "dashboard.py"
@@ -51,7 +52,7 @@ def data_env(monkeypatch):
 
 def _dashboard(data_env, data_dir: Path) -> AppTest:
     data_env(data_dir)
-    app = AppTest.from_file(str(APP), default_timeout=TIMEOUT)
+    app = AppTest.from_function(season_page_script, default_timeout=TIMEOUT)
     app.run()
     return app
 

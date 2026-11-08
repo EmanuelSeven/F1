@@ -6,11 +6,16 @@ import pandas as pd
 import pytest
 
 from f1.dashboard.views.formatting import (
+    change_style,
     events_noun,
+    format_change,
+    format_finish,
+    format_gap_laps,
     points_caption,
     points_subtitle,
     races_card,
     session_label,
+    status_code,
     summary_sentence,
     winners_caption,
 )
@@ -267,3 +272,32 @@ def test_season_page_always_uses_races_and_sprints():
     page = season_filter(chosen)
     assert page.kinds == (R, S)
     assert (page.teams, page.meeting_key) == (("Ferrari",), 1229)
+
+
+# --- Última corrida -------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("change", "text", "css"),
+    [
+        (3, "▲ 3", "color: #22C55E"),
+        (-2, "▼ 2", "color: #EF4444"),
+        (0, "=", ""),
+        (None, "—", ""),
+    ],
+)
+def test_format_change_and_style(change, text, css):
+    assert format_change(change) == text
+    assert change_style(change) == css
+
+
+def test_finish_time_and_status_codes():
+    assert format_finish(1, 5723.504, 0) == "1:35:23.504"
+    assert format_finish(2, None, 14.602) == "+14,602 s"
+    assert format_finish(18, None, "+1 LAP") == "+1 LAP"
+    assert format_gap_laps("+2 LAPS") == "+2 LAPS"
+    assert format_gap_laps(None) == "—"
+    assert status_code(True, False, False) == "DNF"
+    assert status_code(False, True, False) == "DNS"
+    assert status_code(False, False, True) == "DSQ"
+    assert status_code(False, False, False) == ""

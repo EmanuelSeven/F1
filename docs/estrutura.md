@@ -10,7 +10,8 @@ src/f1/
 │   └── views/
 │       ├── sidebar.py          # Barra lateral: marca, filtros e rodapé
 │       ├── data.py             # Leituras em cache e cargas sob demanda
-│       ├── season.py           # Página "Temporada" (principal)
+│       ├── latest.py           # Página "Última corrida" (inicial)
+│       ├── season.py           # Página "Temporada"
 │       ├── laps.py             # Página "Voltas" (5 mais rápidas por circuito)
 │       ├── tables.py           # Tabelas com equipe colorida e destaque
 │       ├── lake.py             # Página "Data Lake"
@@ -30,7 +31,8 @@ src/f1/
 │   ├── lineage.py              # _run_id, _ingested_at, _source
 │   ├── standings.py            # Pontos, vitórias, pódios, vencedores, KPIs
 │   ├── filters.py              # SeasonFilter e aplicação dos filtros
-│   └── fastest_laps.py         # Voltas mais rápidas por circuito
+│   ├── fastest_laps.py         # Voltas mais rápidas por circuito
+│   └── last_race.py            # Última corrida: escolha, largada, destaques
 ├── quality/
 │   ├── schemas.py              # Um DataFrameSchema Pandera por dataset
 │   └── validation.py           # validate() → ValidationResult / DataQualityError
@@ -44,7 +46,7 @@ src/f1/
 │   ├── common.py               # normaliza → valida → silver/quarentena
 │   ├── calendar.py             # meetings + sessions de um ano
 │   ├── meeting.py              # 6 datasets de sessão de um meeting
-│   ├── results.py              # drivers + resultados de várias sessões em lote
+│   ├── results.py              # resultados em lote + grade de largada por GP
 │   ├── season.py               # calendário + meetings encerrados
 │   └── factory.py              # build_stores (CLI e dashboard)
 └── utils/

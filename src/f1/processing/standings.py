@@ -121,6 +121,21 @@ def result_kinds(results: pd.DataFrame, sessions: pd.DataFrame) -> set[SessionKi
     return {SessionKind(k) for k in df.loc[df["session_key"].isin(keys), "kind"]}
 
 
+def finished_kinds(sessions: pd.DataFrame, now: datetime) -> set[SessionKind]:
+    """Tipos de sessão com ao menos uma sessão já encerrada no calendário.
+
+    Ex.: numa temporada sem sprints, ``SPRINT`` nunca aparece, e portanto não
+    há resultados de sprint a buscar.
+    """
+    df = classified_sessions(sessions)
+    ends = sessions.set_index("session_key")["date_end"].fillna(
+        sessions.set_index("session_key")["date_start"]
+    )
+    end = pd.to_datetime(df["session_key"].map(ends), utc=True)
+    done = df.loc[(end <= pd.Timestamp(now)).fillna(False)]
+    return {SessionKind(k) for k in done["kind"]}
+
+
 def driver_acronyms(drivers: pd.DataFrame) -> pd.Series:
     """Sigla de 3 letras de cada piloto (ex.: ``LAW``).
 

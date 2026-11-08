@@ -1,6 +1,6 @@
 """Tabelas do dashboard: equipe com quadradinho colorido e linhas em destaque."""
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 
 import pandas as pd
 import streamlit as st
@@ -17,12 +17,17 @@ def team_label(team: object) -> str:
 
 
 def table_styles(
-    display: pd.DataFrame, colours: Sequence[str], highlight: Sequence[int] = ()
+    display: pd.DataFrame,
+    colours: Sequence[str],
+    highlight: Sequence[int] = (),
+    column_styles: Mapping[str, Sequence[str]] | None = None,
 ) -> pd.DataFrame:
     """CSS por célula: cor da equipe na coluna ``Equipe`` e linhas em destaque."""
     styles = pd.DataFrame("", index=display.index, columns=display.columns)
     if TEAM_COLUMN in styles.columns:
         styles[TEAM_COLUMN] = [f"color: {c}" for c in colours]
+    for column, css in (column_styles or {}).items():
+        styles[column] = list(css)
     for row in highlight:
         styles.iloc[row] = [
             f"{css}; {HIGHLIGHT_STYLE}" if css else HIGHLIGHT_STYLE
@@ -38,6 +43,7 @@ def render_table(  # noqa: PLR0913 - opções de exibição explícitas
     key: str,
     selectable: bool = False,
     highlight: Sequence[int] = (),
+    column_styles: Mapping[str, Sequence[str]] | None = None,
     max_rows: int = 25,
     column_config: dict[str, object] | None = None,
 ) -> list[int]:
@@ -46,7 +52,7 @@ def render_table(  # noqa: PLR0913 - opções de exibição explícitas
     O ``st.dataframe`` só aceita estilo por célula, por isso a célula ``Equipe``
     inteira (quadradinho + nome) recebe a cor.
     """
-    styles = table_styles(display, colours, highlight)
+    styles = table_styles(display, colours, highlight, column_styles)
     styled = display.style.apply(lambda _df: styles, axis=None)
     height = ROW_HEIGHT * (min(len(display), max_rows) + 1) + 3
     options: dict[str, object] = {

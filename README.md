@@ -24,9 +24,10 @@ Os dados ficam em `data/silver/<dataset>/season=YYYY[/meeting_key=N]/part-00000.
 poetry run streamlit run src/f1/dashboard.py   # ou: poetry run task dashboard
 ```
 
-Painel analítico em tema escuro. A barra lateral, comum às páginas, tem os filtros de temporada, tipo de sessão, Grande Prêmio, equipe e piloto. São três páginas:
+Painel analítico em tema escuro. A barra lateral, comum às páginas, tem a navegação e os filtros de temporada, tipo de sessão, Grande Prêmio, equipe e piloto. São quatro páginas:
 
-- **Temporada** (principal):
+- **Última corrida** (inicial): a corrida concluída mais recente, com cabeçalho, pódio, destaques, classificação com largada e posições ganhas, e o top 5 do campeonato.
+- **Temporada**:
   - título com o ano escolhido na barra lateral (padrão 2024) e frase-resumo;
   - KPIs de corridas, sprints, vencedores e pontos do líder;
   - pontos por piloto e vencedores por corrida;

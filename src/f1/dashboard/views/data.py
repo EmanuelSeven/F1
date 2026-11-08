@@ -6,13 +6,17 @@ falhas não ficam em cache) e leituras do lake usam ``st.cache_data``.
 """
 
 from collections.abc import Callable, Iterable
+from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 
+import pandas as pd
 import streamlit as st
 
 from f1.config.settings import get_settings
 from f1.dashboard.bootstrap import (
     BootstrapResult,
+    run_grid,
     run_meeting_laps,
     run_race_details,
     run_season_bootstrap,
@@ -25,14 +29,17 @@ from f1.dashboard.loaders import (
     load_platform_summary,
     load_race_details,
     load_season_data,
+    read_dataset,
     season_is_loaded,
 )
+from f1.domain.endpoints import Endpoint
 from f1.domain.models import MeetingRef, SessionKind
 from f1.ingestion.openf1_client import OpenF1AccessError, OpenF1Error
-from f1.processing.standings import result_kinds
+from f1.processing.standings import finished_kinds, result_kinds
 from f1.quality.validation import DataQualityError
 
 CACHE_TTL_SECONDS = 300
+LATEST_TTL_SECONDS = 600  # página Última corrida: cache curto
 SUMMARY_TTL_SECONDS = 60
 ACCESS_DENIED_MESSAGE = (
     "A OpenF1 está temporariamente indisponível para acesso gratuito "
@@ -140,11 +147,16 @@ def try_load(loader: Callable[..., BootstrapResult], *args: object) -> bool:
 def missing_kinds(
     data_dir: Path, year: int, kinds: Iterable[SessionKind]
 ) -> set[SessionKind] | None:
-    """Tipos pedidos que ainda não têm resultados (``None``: temporada ausente)."""
+    """Tipos pedidos que ainda não têm resultados (``None``: temporada ausente).
+
+    Só conta tipos com sessões já encerradas: numa temporada sem sprints, por
+    exemplo, não há resultados de sprint a buscar.
+    """
     if not season_is_loaded(data_dir, year):
         return None
     data = season_data(data_dir, year)
-    return set(kinds) - result_kinds(data.results, data.sessions)
+    possible = finished_kinds(data.sessions, datetime.now(UTC))
+    return (set(kinds) & possible) - result_kinds(data.results, data.sessions)
 
 
 def ensure_season(data_dir: Path, year: int, kinds: tuple[SessionKind, ...]) -> None:
@@ -162,3 +174,59 @@ def ensure_season(data_dir: Path, year: int, kinds: tuple[SessionKind, ...]) -> 
         data = season_data(data_dir, year)
         wanted |= result_kinds(data.results, data.sessions)
     try_load(bootstrap_season, data_dir, year, kinds_key(wanted))
+
+
+@dataclass(frozen=True)
+class RefreshOutcome:
+    """Resultado de uma atualização da API (falhas também ficam em cache)."""
+
+    ok: bool
+    access_denied: bool = False
+
+
+def refresh_bucket(now: datetime) -> int:
+    """Janela de ``LATEST_TTL_SECONDS``: a mesma chave de cache dentro dela."""
+    return int(now.timestamp() // LATEST_TTL_SECONDS)
+
+
+@st.cache_resource(show_spinner="Buscando os resultados mais recentes da OpenF1...")
+def refresh_results(
+    data_dir: Path, year: int, kinds: tuple[str, ...], bucket: int
+) -> RefreshOutcome:
+    """Recarrega calendário e resultados de ``year`` (no máximo 1x por janela).
+
+    Diferente das outras cargas, a falha também é guardada em cache durante a
+    janela, para não repetir requisições a cada interação enquanto a OpenF1
+    estiver indisponível.
+    """
+    selected = tuple(SessionKind(k) for k in kinds)
+    try:
+        run_season_bootstrap(get_settings(), year, kinds=selected)
+    except OpenF1AccessError:
+        return RefreshOutcome(ok=False, access_denied=True)
+    except (OpenF1Error, DataQualityError):
+        return RefreshOutcome(ok=False)
+    clear_lake_caches()
+    grid_data.clear()
+    return RefreshOutcome(ok=True)
+
+
+@st.cache_data(ttl=LATEST_TTL_SECONDS, show_spinner=False)
+def grid_data(data_dir: Path, year: int, meeting_key: int) -> pd.DataFrame:
+    return read_dataset(data_dir, Endpoint.STARTING_GRID, year, meeting_key)
+
+
+@st.cache_resource(show_spinner="Baixando a grade de largada...")
+def bootstrap_grid(
+    data_dir: Path, year: int, meeting_key: int, bucket: int
+) -> BootstrapResult:
+    """Grade de largada (tentada de novo a cada janela enquanto estiver vazia)."""
+    result = run_grid(get_settings(), year, meeting_key)
+    grid_data.clear()
+    clear_lake_caches()
+    return result
+
+
+def ensure_grid(data_dir: Path, year: int, meeting_key: int, now: datetime) -> None:
+    if grid_data(data_dir, year, meeting_key).empty:
+        try_load(bootstrap_grid, data_dir, year, meeting_key, refresh_bucket(now))

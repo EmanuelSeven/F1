@@ -90,11 +90,11 @@ poetry run streamlit run src/f1/dashboard.py
 poetry run task dashboard
 ```
 
-Abre em <http://localhost:8501> com três páginas, na barra de navegação do topo: **Temporada**, **Voltas** e **Data Lake**.
+Abre em <http://localhost:8501> com quatro páginas: **Última corrida** (a inicial), **Temporada**, **Voltas** e **Data Lake**. A navegação entre elas fica na barra lateral, logo abaixo da marca e acima dos filtros.
 
 ### Barra lateral (comum a todas as páginas)
 
-No topo fica a marca **FORMULA 1 · Analytics**. A seção **Filtros** traz:
+No topo ficam a marca **FORMULA 1 · Analytics** e os links das páginas. A seção **Filtros** traz:
 
 | Filtro | Efeito |
 |---|---|
@@ -112,7 +112,23 @@ No rodapé aparece "Dados: OpenF1 · última atualização {data}", com a data d
 
 Um piloto que usou mais de um número no ano aparece uma única vez, com os pontos somados. Por exemplo, Oliver Bearman em 2024: #38 pela Ferrari e #50 pela Haas.
 
-### Temporada (página principal)
+Cada página mostra só os filtros que usa. Na **Última corrida**, o seletor de temporada aparece desabilitado, com uma explicação, e os demais filtros ficam ocultos. Os valores escolhidos continuam guardados ao trocar de página.
+
+### Última corrida (página inicial)
+
+A corrida principal mais recente **já concluída**: sessão *Race* com `date_end` no passado e resultados disponíveis. Não usa o filtro de temporada: procura no ano atual e, no início do ano, no anterior.
+
+- **Cabeçalho:** "{GP} · {circuito}, {país}", a data e "Rodada {n} de {total} · temporada {ano}".
+- **Pódio:** um cartão para 1º, 2º e 3º, com piloto, equipe (na cor da equipe), tempo do vencedor e diferença dos demais.
+- **Destaques:** volta mais rápida (piloto e tempo), quem mais ganhou posições e número de abandonos.
+- **Classificação:** Pos, Piloto, Equipe, Largada, Posições (▲ verde quando ganhou, ▼ vermelho quando perdeu; largada − chegada), Tempo/Diferença (com "+1 LAP" quando for o caso), Pontos e Situação (DNF/DNS/DSQ).
+- **Campeonato:** top 5 de pilotos após essa corrida, com a variação de posição em relação à corrida anterior.
+
+**Atualização.** Enquanto a última corrida não tiver resultados (ela acabou de terminar e a OpenF1 ainda não publicou), a página tenta recarregar calendário e resultados no máximo uma vez a cada **10 minutos**. Até lá, mostra a corrida anterior com o aviso "Resultados de {GP} ainda não disponíveis". O mesmo acontece se a OpenF1 estiver indisponível (`OpenF1AccessError`); falhas também ficam guardadas por 10 minutos, para não repetir a requisição a cada clique.
+
+A **largada** vem do dataset `starting_grid`, baixado sob demanda por GP. A OpenF1 associa a grade à sessão de classificação que a definiu; por isso a página usa a grade da sessão *Qualifying*, não a da classificação sprint. Pilotos sem posição de largada (ex.: largaram do box) aparecem com "—".
+
+### Temporada
 
 1. **Cabeçalho:** "Fórmula 1 · Temporada {ano}" (o ano vem da barra lateral). A data da última atualização dos dados aparece no rodapé da barra lateral.
 2. **Frase-resumo** gerada dos dados, por exemplo: "**Max Verstappen** soma **437** pontos; **7** pilotos diferentes venceram as **24** corridas." Com a **temporada em andamento** (há corridas futuras no calendário), ela vira "**{líder}** lidera com **{pts}** pontos após **{feitas}** de **{total}** corridas; **{n}** pilotos diferentes venceram."

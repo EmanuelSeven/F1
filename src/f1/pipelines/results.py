@@ -64,6 +64,24 @@ def run_results(  # noqa: PLR0913 - dependências injetadas explicitamente
     return metrics
 
 
+def run_meeting_grid(
+    source: OpenF1Source,
+    stores: LakeStores,
+    ctx: RunContext,
+    year: int,
+    meeting_key: int,
+) -> PipelineMetrics:
+    """Grade de largada de um meeting (uma requisição; overwrite da partição).
+
+    A OpenF1 associa a grade à sessão de classificação que a definiu (a da
+    corrida e, em fins de semana com sprint, também a da sprint).
+    """
+    partition = Partition(season=year, meeting_key=meeting_key)
+    records = source.fetch(Endpoint.STARTING_GRID, [Filter("meeting_key", meeting_key)])
+    stores.raw.write(Endpoint.STARTING_GRID, partition, "meeting", records)
+    return load_dataset(Endpoint.STARTING_GRID, records, partition, stores, ctx)
+
+
 def _fetch_by_session(
     source: OpenF1Source,
     endpoint: Endpoint,

@@ -62,3 +62,24 @@ def as_season(openf1_data, year: int):
         for record in openf1_data[endpoint]:
             record["year"] = year
     return openf1_data
+
+
+def season_page_script() -> None:
+    """Roteador reduzido à página Temporada (o AppTest não troca de página).
+
+    Para uso com ``AppTest.from_function``: só o corpo da função é executado.
+    """
+    from f1.config.settings import get_settings  # noqa: PLC0415
+    from f1.dashboard.views.season import render_season  # noqa: PLC0415
+    from f1.dashboard.views.sidebar import (  # noqa: PLC0415
+        SEASON_PAGE,
+        render_sidebar_filters,
+        render_sidebar_footer,
+    )
+    from f1.dashboard.views.theme import prevent_translation  # noqa: PLC0415
+
+    prevent_translation()
+    data_dir = get_settings().data_dir
+    render_sidebar_filters(data_dir, SEASON_PAGE)
+    render_season()
+    render_sidebar_footer(data_dir)

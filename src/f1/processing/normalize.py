@@ -136,6 +136,11 @@ COLUMNS: Mapping[Endpoint, tuple[Col, ...]] = MappingProxyType(
             Col("date", "datetime", required=True),
             *_cols("float", "lane_duration", "stop_duration"),
         ),
+        Endpoint.STARTING_GRID: (
+            *_keys("session_key", "meeting_key", "driver_number"),
+            Col("position", "int"),
+            Col("lap_duration", "float"),
+        ),
         Endpoint.WEATHER: (
             *_keys("session_key", "meeting_key"),
             Col("date", "datetime", required=True),

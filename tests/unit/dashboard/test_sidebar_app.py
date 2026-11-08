@@ -10,7 +10,7 @@ from streamlit.testing.v1 import AppTest
 from f1.config.settings import get_settings
 from f1.domain.endpoints import Endpoint
 from f1.ingestion.openf1_client import OpenF1Client
-from tests.unit.dashboard.conftest import StubClient, as_season
+from tests.unit.dashboard.conftest import StubClient, as_season, season_page_script
 
 APP = Path(__file__).parents[3] / "src" / "f1" / "dashboard.py"
 TIMEOUT = 60
@@ -32,7 +32,7 @@ def app(monkeypatch, tmp_path, stub):
     monkeypatch.setenv("F1_DATA_DIR", str(tmp_path / "lake"))
     monkeypatch.setenv("F1_REQUEST_INTERVAL_SECONDS", "0")
     get_settings.cache_clear()
-    test = AppTest.from_file(str(APP), default_timeout=TIMEOUT)
+    test = AppTest.from_function(season_page_script, default_timeout=TIMEOUT)
     test.run()
     assert not test.exception
     yield test
@@ -78,7 +78,7 @@ def test_season_selector_moved_out_of_the_page(app):
 def test_year_is_kept_in_query_params(monkeypatch, tmp_path, stub, openf1_data):
     monkeypatch.setenv("F1_DATA_DIR", str(tmp_path / "lake"))
     get_settings.cache_clear()
-    test = AppTest.from_file(str(APP), default_timeout=TIMEOUT)
+    test = AppTest.from_function(season_page_script, default_timeout=TIMEOUT)
     test.query_params["ano"] = "2023"
     test.run()
 
@@ -165,7 +165,7 @@ def _season_app(monkeypatch, tmp_path, data) -> AppTest:
     st.cache_resource.clear()
     st.cache_data.clear()
     get_settings.cache_clear()
-    test = AppTest.from_file(str(APP), default_timeout=TIMEOUT)
+    test = AppTest.from_function(season_page_script, default_timeout=TIMEOUT)
     test.run()
     assert not test.exception
     return test
@@ -267,7 +267,7 @@ def test_season_page_ignores_saved_session_kinds(monkeypatch, tmp_path, openf1_d
     st.cache_resource.clear()
     st.cache_data.clear()
     get_settings.cache_clear()
-    test = AppTest.from_file(str(APP), default_timeout=TIMEOUT)
+    test = AppTest.from_function(season_page_script, default_timeout=TIMEOUT)
     test.session_state["filter_kinds_saved"] = ["qualifying"]
     test.run()
 
