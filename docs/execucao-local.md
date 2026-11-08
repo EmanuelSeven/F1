@@ -99,14 +99,14 @@ No topo fica a marca **FORMULA 1 · Analytics**. A seção **Filtros** traz:
 | Filtro | Efeito |
 |---|---|
 | **Temporada** | 2023 até o ano atual (padrão 2024). Também fica na URL (`?ano=2024`), para compartilhar o link |
-| **Tipo de sessão** | Corrida, Sprint, Classificação, Treino livre (padrão: Corrida + Sprint). Os pontos somam os tipos marcados (classificação e treinos não valem pontos). Os vencedores, as vitórias e os pódios usam as corridas, se marcadas; senão, os tipos marcados (ex.: só Classificação mostra as poles) |
+| **Tipo de sessão** | Corrida, Sprint, Classificação, Treino livre (padrão: Corrida + Sprint). Aparece só nas páginas onde se aplica. Nessas páginas, os pontos somam os tipos marcados, e os vencedores usam as corridas, se marcadas; senão, os tipos marcados (só Classificação mostra as poles). Na **Temporada** ele fica desabilitado, com uma explicação: a página considera sempre corridas e sprints. No **Data Lake** fica oculto. A escolha é preservada ao passar por páginas sem o filtro |
 | **Grande Prêmio** | "Todos" ou um GP do ano. Não filtra os números: destaca a linha na tabela de vencedores e abre os detalhes daquele GP |
 | **Equipe e piloto** | Restringe gráfico, tabela, KPIs e frase aos pilotos escolhidos. A lista de pilotos depende das equipes marcadas, e os dois filtros se combinam (E) |
 | **Limpar filtros** | Volta tudo ao padrão, menos a temporada |
 
 Os filtros ficam em `st.session_state`, então continuam valendo ao trocar de página.
 
-Ao marcar Classificação ou Treino livre, os resultados dessas sessões são baixados sob demanda, junto com os tipos já carregados.
+Nas páginas que usam o filtro, marcar Classificação ou Treino livre baixa sob demanda os resultados dessas sessões, junto com os tipos já carregados.
 
 No rodapé aparece "Dados: OpenF1 · última atualização {data}", com a data da ingestão mais recente no lake.
 
@@ -115,9 +115,9 @@ Um piloto que usou mais de um número no ano aparece uma única vez, com os pont
 ### Temporada (página principal)
 
 1. **Cabeçalho:** "Fórmula 1 · temporada {ano}" (o ano vem da barra lateral).
-2. **Frase-resumo** gerada dos dados, por exemplo: "**Max Verstappen** soma **437** pontos; **7** pilotos diferentes venceram as **24** corridas."
-3. **Quatro KPIs:** corridas, sprints, vencedores diferentes (só corridas) e pontos do líder (corridas + sprints).
-4. **Temporada:** à esquerda, *Pontos por piloto* (barras na cor da equipe; o tooltip mostra vitórias e pódios); à direita, *Vencedores por corrida* (rodada, GP, data, vencedor e equipe). Pontos vêm de `session_results.points`, que já inclui o ponto da volta mais rápida.
+2. **Frase-resumo** gerada dos dados, por exemplo: "**Max Verstappen** soma **437** pontos; **7** pilotos diferentes venceram as **24** corridas." Com a **temporada em andamento** (há corridas futuras no calendário), ela vira "**{líder}** lidera com **{pts}** pontos após **{feitas}** de **{total}** corridas; **{n}** pilotos diferentes venceram."
+3. **Quatro KPIs:** corridas, sprints, vencedores diferentes (só corridas) e pontos do líder (corridas + sprints). Com a temporada em andamento, o cartão *Corridas* mostra "{feitas}/{total}" e a legenda "Realizadas / previstas".
+4. **Temporada:** à esquerda, *Pontos por piloto* (barras na cor da equipe; o tooltip mostra vitórias e pódios). O gráfico considera só corridas e sprints e esconde pilotos com 0 ponto; o botão "Mostrar pilotos sem pontos" (desligado por padrão) mostra todos. à direita, *Vencedores por corrida* (rodada, GP, data, vencedor e equipe). Pontos vêm de `session_results.points`, que já inclui o ponto da volta mais rápida.
 5. **Clique em uma corrida** da tabela para ver os detalhes em abas: resultado final, tempos de volta (escolha de pilotos e opção de ocultar voltas lentas), estratégia de pneus, pit stops e clima.
 
 **Carga automática.** Ao abrir uma temporada que ainda não está no lake, o painel roda, com o aviso *"Carregando dados da OpenF1..."*:

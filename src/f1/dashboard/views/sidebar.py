@@ -9,6 +9,7 @@ compartilhar o link. A interpretação dos filtros está em
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from enum import StrEnum
 from pathlib import Path
 
 import streamlit as st
@@ -29,6 +30,8 @@ KEY_KINDS = "filter_kinds"
 KEY_GP = "filter_gp"
 KEY_TEAMS = "filter_teams"
 KEY_DRIVERS = "filter_drivers"
+KEY_KINDS_SAVED = "filter_kinds_saved"  # sobrevive a páginas sem o widget
+KEY_KINDS_LOCKED = "filter_kinds_locked"
 KEY_STATE = "dashboard_filters"
 QUERY_YEAR = "ano"
 KIND_ORDER: tuple[SessionKind, ...] = tuple(SessionKind)
@@ -37,6 +40,31 @@ BRAND_HTML = (
     '<div class="f1-brand"><span class="f1-brand-mark">FORMULA 1</span>'
     '<span class="f1-brand-sub"> · Analytics</span></div>'
 )
+
+
+class KindsFilter(StrEnum):
+    """Como o filtro "Tipo de sessão" aparece numa página."""
+
+    EDITABLE = "editable"  # a página usa o filtro
+    LOCKED = "locked"  # desabilitado, com explicação; a página usa o padrão
+    HIDDEN = "hidden"  # oculto; a página não depende do tipo de sessão
+
+
+@dataclass(frozen=True)
+class PageFilters:
+    """Filtros que uma página usa."""
+
+    kinds: KindsFilter = KindsFilter.EDITABLE
+    note: str | None = None
+
+
+EDITABLE_PAGE = PageFilters()
+SEASON_PAGE = PageFilters(
+    KindsFilter.LOCKED,
+    "Não se aplica a esta página: pontos, vencedores e KPIs da temporada "
+    "consideram sempre corridas e sprints.",
+)
+LAKE_PAGE = PageFilters(KindsFilter.HIDDEN)
 
 
 @dataclass(frozen=True)
@@ -69,6 +97,7 @@ def selected_kinds(values: Sequence[str]) -> tuple[SessionKind, ...]:
 
 def reset_filters() -> None:
     """Callback de "Limpar filtros": volta tudo ao padrão, exceto a temporada."""
+    st.session_state[KEY_KINDS_SAVED] = list(DEFAULT_KINDS)
     st.session_state[KEY_KINDS] = list(DEFAULT_KINDS)
     st.session_state[KEY_GP] = None
     st.session_state[KEY_TEAMS] = []
@@ -85,8 +114,8 @@ def _init_state(options: Sequence[int]) -> None:
     state = st.session_state
     if KEY_SEASON not in state:
         state[KEY_SEASON] = initial_year(options, st.query_params.get(QUERY_YEAR))
-    if KEY_KINDS not in state:
-        state[KEY_KINDS] = list(DEFAULT_KINDS)
+    if KEY_KINDS_SAVED not in state:
+        state[KEY_KINDS_SAVED] = list(DEFAULT_KINDS)
     for key, empty in ((KEY_GP, None), (KEY_TEAMS, []), (KEY_DRIVERS, [])):
         if key not in state:
             state[key] = empty
@@ -101,8 +130,46 @@ def _keep_valid(key: str, valid: Sequence[object]) -> None:
         st.session_state[key] = None
 
 
-def render_sidebar_filters(data_dir: Path) -> DashboardFilters:
-    """Desenha a marca e os filtros; carrega a temporada escolhida se preciso."""
+def _kinds_filter(page: PageFilters) -> tuple[SessionKind, ...]:
+    """Desenha (ou não) o filtro "Tipo de sessão" e retorna os tipos efetivos.
+
+    A escolha do usuário fica em ``KEY_KINDS_SAVED``: o Streamlit descarta o
+    estado de widgets que não são desenhados numa execução, e o filtro some ou
+    trava em algumas páginas.
+    """
+    options = [k.value for k in KIND_ORDER]
+    if page.kinds is KindsFilter.HIDDEN:
+        return POINTS_KINDS
+    if page.kinds is KindsFilter.LOCKED:
+        st.multiselect(
+            "Tipo de sessão",
+            options,
+            default=DEFAULT_KINDS,
+            format_func=lambda v: KIND_LABELS[SessionKind(v)],
+            key=KEY_KINDS_LOCKED,
+            disabled=True,
+            help=page.note,
+        )
+        if page.note:
+            st.caption(page.note)
+        return POINTS_KINDS
+    if KEY_KINDS not in st.session_state:  # descartado numa página sem o widget
+        st.session_state[KEY_KINDS] = list(st.session_state[KEY_KINDS_SAVED])
+    values = st.multiselect(
+        "Tipo de sessão",
+        options,
+        format_func=lambda v: KIND_LABELS[SessionKind(v)],
+        key=KEY_KINDS,
+        placeholder="Escolha ao menos um tipo",
+    )
+    st.session_state[KEY_KINDS_SAVED] = list(values)
+    return selected_kinds(values)
+
+
+def render_sidebar_filters(
+    data_dir: Path, page: PageFilters = EDITABLE_PAGE
+) -> DashboardFilters:
+    """Desenha a marca e os filtros da ``page``; carrega a temporada se preciso."""
     options = season_options(datetime.now(UTC))
     _init_state(options)
     with st.sidebar:
@@ -111,15 +178,7 @@ def render_sidebar_filters(data_dir: Path) -> DashboardFilters:
             '<div class="f1-sidebar-title">Filtros</div>', unsafe_allow_html=True
         )
         year = int(st.selectbox("Temporada", options, key=KEY_SEASON))
-        kinds = selected_kinds(
-            st.multiselect(
-                "Tipo de sessão",
-                [k.value for k in KIND_ORDER],
-                format_func=lambda v: KIND_LABELS[SessionKind(v)],
-                key=KEY_KINDS,
-                placeholder="Escolha ao menos um tipo",
-            )
-        )
+        kinds = _kinds_filter(page)
     st.query_params[QUERY_YEAR] = str(year)
 
     ensure_season(data_dir, year, kinds)  # mensagens aparecem na área principal

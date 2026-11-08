@@ -7,6 +7,7 @@ deles está em ``f1.processing.filters``; leituras e cargas em
 
 import re
 from collections.abc import Sequence
+from dataclasses import replace
 from datetime import datetime
 from html import escape
 from pathlib import Path
@@ -33,13 +34,14 @@ from f1.dashboard.views.formatting import (
     format_temperature,
     points_caption,
     points_subtitle,
+    races_card,
     session_label,
     summary_sentence,
     winners_caption,
 )
 from f1.dashboard.views.sidebar import current_filters
 from f1.dashboard.views.theme import kpi_card, section
-from f1.domain.models import SessionKind
+from f1.domain.models import POINTS_KINDS, SessionKind
 from f1.processing.filters import SeasonFilter, SeasonView, season_view
 from f1.processing.standings import (
     RACE,
@@ -147,6 +149,13 @@ def table_styles(
     return styles
 
 
+def chart_standings(standings: pd.DataFrame, *, show_zero: bool) -> pd.DataFrame:
+    """Pilotos do gráfico de pontos: sem os de 0 ponto, salvo ``show_zero``."""
+    if show_zero:
+        return standings
+    return standings.loc[standings["points"] > 0].reset_index(drop=True)
+
+
 def selection_key(year: int, filt: SeasonFilter) -> str:
     """Chave da tabela de vencedores: muda quando as linhas mudam."""
     parts = [str(year), *filt.kinds, *filt.teams, *map(str, filt.drivers)]
@@ -196,12 +205,12 @@ def _header(year: int) -> None:
     st.markdown(f'<div class="f1-title">{title}</div>', unsafe_allow_html=True)
 
 
-def _kpi_cards(kpis: SeasonKpis, kinds: tuple[SessionKind, ...]) -> None:
-    races = str(kpis.races) if SessionKind.RACE in kinds else "—"
-    sprints = str(kpis.sprints) if SessionKind.SPRINT in kinds else "—"
+def _kpi_cards(kpis: SeasonKpis) -> None:
+    races, races_caption = races_card(kpis)
+    sprints = str(kpis.sprints)
     leader = format_points(kpis.leader_points) if kpis.points_kinds else "—"
     cards = (
-        ("Corridas", races, "Grandes Prêmios da temporada"),
+        ("Corridas", races, races_caption),
         ("Sprints", sprints, "Corridas curtas de sábado"),
         ("Vencedores diferentes", str(kpis.distinct_winners), winners_caption(kpis)),
         ("Pontos do líder", leader, points_caption(kpis.points_kinds)),
@@ -213,13 +222,17 @@ def _kpi_cards(kpis: SeasonKpis, kinds: tuple[SessionKind, ...]) -> None:
 def _points_column(view: SeasonView, year: int) -> None:
     st.markdown("#### Pontos por piloto")
     st.caption(points_subtitle(view.kpis.points_kinds))
-    if not view.kpis.points_kinds:
-        st.info("Classificação e treinos não valem pontos: marque Corrida ou Sprint.")
-    elif view.standings.empty:
+    show_zero = st.toggle(
+        "Mostrar pilotos sem pontos", value=False, key=f"show_zero_{year}"
+    )
+    rows = chart_standings(view.standings, show_zero=show_zero)
+    if view.standings.empty:
         st.info("Nenhum piloto corresponde aos filtros.")
+    elif rows.empty:
+        st.info("Nenhum piloto dos filtros marcou pontos.")
     else:
         st.plotly_chart(
-            charts.points_bar(view.standings), config=PLOT_CONFIG, key=f"points_{year}"
+            charts.points_bar(rows), config=PLOT_CONFIG, key=f"points_{year}"
         )
 
 
@@ -391,18 +404,28 @@ def render_race_details(
         _weather_tab(details, session_key)
 
 
+def season_filter(filters: SeasonFilter) -> SeasonFilter:
+    """Filtro da página: "Tipo de sessão" não se aplica (sempre corridas + sprints)."""
+    return replace(filters, kinds=POINTS_KINDS)
+
+
 def render_season() -> None:
-    """Conteúdo da página "Temporada" (respeita os filtros da barra lateral)."""
+    """Conteúdo da página "Temporada" (respeita os filtros da barra lateral).
+
+    O filtro "Tipo de sessão" não se aplica aqui: pontos, vencedores e KPIs
+    consideram sempre corridas e sprints.
+    """
     data_dir = get_settings().data_dir
     filters = current_filters()
     year = filters.year
     _header(year)
-    if not filters.season.kinds:
-        st.info("Escolha ao menos um tipo de sessão na barra lateral.")
-        return
     data = season_data(data_dir, year)
     view = season_view(
-        data.results, data.sessions, data.meetings, data.drivers, filters.season
+        data.results,
+        data.sessions,
+        data.meetings,
+        data.drivers,
+        season_filter(filters.season),
     )
     if view.all_winners.empty and view.standings.empty:
         st.info(f"Ainda não há resultados de corridas para {year}.")
@@ -411,7 +434,7 @@ def render_season() -> None:
         f'<div class="f1-summary">{summary_html(view.kpis)}</div>',
         unsafe_allow_html=True,
     )
-    _kpi_cards(view.kpis, filters.season.kinds)
+    _kpi_cards(view.kpis)
     selected = _season_section(view, year)
     target = selected if selected is not None else view.focus_row()
     if target is not None:

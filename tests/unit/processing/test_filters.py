@@ -1,3 +1,6 @@
+from datetime import UTC, datetime
+
+import pandas as pd
 import pytest
 
 from f1.domain.endpoints import Endpoint
@@ -17,8 +20,10 @@ from f1.processing.filters import (
 )
 from f1.processing.normalize import normalize
 from f1.processing.standings import (
+    RaceSchedule,
     classified_sessions,
     driver_standings,
+    race_schedule,
     race_winners,
     result_kinds,
     season_kpis,
@@ -391,3 +396,45 @@ def test_team_filter_includes_driver_who_changed_number():
     assert allowed_drivers(data["drivers"], SeasonFilter(drivers=(50,))) == {38, 50}
     picked = driver_options(data["drivers"], data["sessions"], [FERRARI])
     assert picked["acronym"].tolist() == ["BEA"]
+
+
+# --- temporada em andamento ---------------------------------------------
+
+
+def _with_future_race(season):
+    future = normalize(
+        Endpoint.SESSIONS,
+        [
+            {
+                "session_key": 9999,
+                "meeting_key": 1300,
+                "year": 2023,
+                "session_name": "Race",
+                "session_type": "Race",
+                "date_start": "2023-12-01T13:00:00+00:00",
+            }
+        ],
+    )
+    return {**season, "sessions": pd.concat([season["sessions"], future])}
+
+
+def test_race_schedule_counts_scheduled_and_upcoming(season):
+    data = _with_future_race(season)
+    before_finale = datetime(2023, 11, 1, tzinfo=UTC)
+    after_finale = datetime(2024, 1, 1, tzinfo=UTC)
+
+    assert race_schedule(data["sessions"], before_finale) == RaceSchedule(2, 1)
+    assert race_schedule(data["sessions"], after_finale) == RaceSchedule(2, 0)
+    assert race_schedule(season["sessions"], before_finale) == RaceSchedule(1, 0)
+
+
+def test_view_marks_season_in_progress(season):
+    data = _with_future_race(season)
+    args = (data["results"], data["sessions"], data["meetings"], data["drivers"])
+
+    live = season_view(*args, SeasonFilter(), now=datetime(2023, 11, 1, tzinfo=UTC))
+    assert live.kpis.in_progress
+    assert (live.kpis.races, live.kpis.scheduled_races) == (1, 2)
+
+    done = season_view(*args, SeasonFilter(), now=datetime(2024, 1, 1, tzinfo=UTC))
+    assert not done.kpis.in_progress

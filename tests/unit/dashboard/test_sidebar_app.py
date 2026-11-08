@@ -69,7 +69,9 @@ def test_season_selector_moved_out_of_the_page(app):
     assert len(app.main.selectbox) == 0
     assert "Fórmula 1 · temporada 2024" in _html(app)
     assert app.selectbox(key="filter_season").value == 2024
-    assert app.multiselect(key="filter_kinds").value == ["race", "sprint"]
+    kinds = app.multiselect(key="filter_kinds_locked")
+    assert kinds.disabled
+    assert kinds.value == ["race", "sprint"]
     assert app.selectbox(key="filter_gp").value is None
 
 
@@ -130,40 +132,14 @@ def test_grand_prix_filter_opens_details(app):
     assert app.dataframe[1].value["Piloto"].tolist() == ["SAI", "VER"]
 
 
-def test_qualifying_is_loaded_on_demand(app, stub):
-    stub.calls.clear()
-
-    app.multiselect(key="filter_kinds").set_value(["qualifying"]).run()
-
-    assert not app.exception
-    result_calls = [c for c in stub.calls if c[0] is Endpoint.SESSION_RESULT]
-    assert [c[1][0].value for c in result_calls] == [(9161, 9165)]  # mantém a corrida
-    assert "#### Vencedores por sessão" in [m.value for m in app.markdown]
-    table = app.dataframe[0].value
-    assert table["Sessão"].tolist() == ["Classificação"]
-    assert table["Vencedor"].tolist() == ["SAI"]
-    assert any("não valem pontos" in i.value for i in app.info)
-    assert "**1** piloto terminou em 1º" not in _html(app)  # renderizado em HTML
-    assert "terminou em 1º" in _html(app)
-
-
-def test_empty_kinds_asks_for_a_type(app):
-    app.multiselect(key="filter_kinds").set_value([]).run()
-
-    assert not app.exception
-    assert "Escolha ao menos um tipo de sessão" in app.info[0].value
-
-
 def test_clear_filters_resets_all_but_the_season(app):
     app.multiselect(key="filter_teams").set_value(["Ferrari"]).run()
-    app.multiselect(key="filter_kinds").set_value(["race"]).run()
     app.selectbox(key="filter_gp").set_value(1219).run()
 
     app.sidebar.button[0].click().run()
 
     assert not app.exception
     assert app.multiselect(key="filter_teams").value == []
-    assert app.multiselect(key="filter_kinds").value == ["race", "sprint"]
     assert app.selectbox(key="filter_gp").value is None
     assert app.selectbox(key="filter_season").value == 2024
 
@@ -176,3 +152,221 @@ def test_filters_live_in_session_state(app):
     filters = app.session_state["dashboard_filters"]
     assert (filters.year, filters.season.teams) == (2024, ("Ferrari",))
     assert _chart_labels(app) == ["SAI"]
+
+
+# --- regras da página Temporada -----------------------------------------
+
+
+def _season_app(monkeypatch, tmp_path, data) -> AppTest:
+    client = StubClient(data)
+    monkeypatch.setattr(OpenF1Client, "from_settings", lambda _s: client)
+    monkeypatch.setenv("F1_DATA_DIR", str(tmp_path / "lake"))
+    monkeypatch.setenv("F1_REQUEST_INTERVAL_SECONDS", "0")
+    st.cache_resource.clear()
+    st.cache_data.clear()
+    get_settings.cache_clear()
+    test = AppTest.from_file(str(APP), default_timeout=TIMEOUT)
+    test.run()
+    assert not test.exception
+    return test
+
+
+def _with_zero_point_driver(data):
+    """Acrescenta HAM (Mercedes) na corrida, em 12º e sem pontos."""
+    race_driver = next(d for d in data[Endpoint.DRIVERS] if d["session_key"] == 9165)
+    data[Endpoint.DRIVERS].append(
+        {
+            **race_driver,
+            "driver_number": 44,
+            "name_acronym": "HAM",
+            "first_name": "Lewis",
+            "last_name": "Hamilton",
+            "team_name": "Mercedes",
+            "team_colour": "27F4D2",
+        }
+    )
+    data[Endpoint.SESSION_RESULT].append(
+        {
+            "session_key": 9165,
+            "meeting_key": 1219,
+            "driver_number": 44,
+            "position": 12,
+            "points": 0.0,
+            "number_of_laps": 62,
+        }
+    )
+    return data
+
+
+def _with_future_race(data):
+    """Acrescenta um GP ainda não disputado ao calendário."""
+    data[Endpoint.MEETINGS].append(
+        {
+            "meeting_key": 1300,
+            "meeting_name": "Future Grand Prix",
+            "year": 2024,
+            "date_start": "2099-05-01T10:00:00+00:00",
+            "date_end": "2099-05-03T15:00:00+00:00",
+            "is_cancelled": False,
+        }
+    )
+    data[Endpoint.SESSIONS].append(
+        {
+            "session_key": 9999,
+            "meeting_key": 1300,
+            "year": 2024,
+            "session_name": "Race",
+            "session_type": "Race",
+            "date_start": "2099-05-03T13:00:00+00:00",
+            "date_end": "2099-05-03T15:00:00+00:00",
+            "is_cancelled": False,
+        }
+    )
+    return data
+
+
+def test_points_chart_hides_drivers_without_points(monkeypatch, tmp_path, openf1_data):
+    data = _with_zero_point_driver(as_season(openf1_data, 2024))
+    app = _season_app(monkeypatch, tmp_path, data)
+
+    toggle = app.toggle(key="show_zero_2024")
+    assert toggle.label == "Mostrar pilotos sem pontos"
+    assert toggle.value is False
+    assert _chart_labels(app) == ["SAI", "VER"]
+
+    toggle.set_value(True).run()
+    assert _chart_labels(app) == ["SAI", "VER", "HAM"]
+
+
+def test_season_in_progress_shows_done_of_total(monkeypatch, tmp_path, openf1_data):
+    data = _with_future_race(as_season(openf1_data, 2024))
+    app = _season_app(monkeypatch, tmp_path, data)
+
+    html = _html(app)
+    assert (
+        "<strong>Carlos Sainz</strong> lidera com <strong>25</strong> pontos após "
+        "<strong>1</strong> de <strong>2</strong> corridas; <strong>1</strong> "
+        "piloto venceu."
+    ) in html
+    assert 'class="kpi-value">1/2<' in html
+    assert "Realizadas / previstas" in html
+
+
+def test_finished_season_keeps_plain_races_card(app):
+    html = _html(app)
+    assert 'class="kpi-value">1<' in html
+    assert "Grandes Prêmios da temporada" in html
+    assert "lidera com" not in html
+
+
+def test_season_page_ignores_saved_session_kinds(monkeypatch, tmp_path, openf1_data):
+    data = as_season(openf1_data, 2024)
+    client = StubClient(data)
+    monkeypatch.setattr(OpenF1Client, "from_settings", lambda _s: client)
+    monkeypatch.setenv("F1_DATA_DIR", str(tmp_path / "lake"))
+    st.cache_resource.clear()
+    st.cache_data.clear()
+    get_settings.cache_clear()
+    test = AppTest.from_file(str(APP), default_timeout=TIMEOUT)
+    test.session_state["filter_kinds_saved"] = ["qualifying"]
+    test.run()
+
+    assert not test.exception
+    assert "#### Vencedores por corrida" in [m.value for m in test.markdown]
+    assert _chart_labels(test) == ["SAI", "VER"]
+    assert "Não se aplica a esta página" in " ".join(
+        c.value for c in test.sidebar.caption
+    )
+    calls = [c for c in client.calls if c[0] is Endpoint.SESSION_RESULT]
+    assert [c[1][0].value for c in calls] == [(9165,)]  # só a corrida, sem quali
+    assert test.session_state["filter_kinds_saved"] == ["qualifying"]  # preservado
+
+
+# --- "Tipo de sessão" em páginas que o usam ------------------------------
+
+
+def _policy_script() -> None:
+    import streamlit as st  # noqa: PLC0415 - AppTest executa só o corpo da função
+
+    from f1.config.settings import get_settings  # noqa: PLC0415
+    from f1.dashboard.views.sidebar import (  # noqa: PLC0415
+        EDITABLE_PAGE,
+        LAKE_PAGE,
+        SEASON_PAGE,
+        render_sidebar_filters,
+    )
+
+    pages = {"editable": EDITABLE_PAGE, "hidden": LAKE_PAGE, "locked": SEASON_PAGE}
+    page = pages[st.session_state.get("_test_page", "editable")]
+    filters = render_sidebar_filters(get_settings().data_dir, page)
+    st.write("kinds=" + ",".join(filters.season.kinds))
+
+
+@pytest.fixture
+def policy_app(monkeypatch, tmp_path, stub):
+    monkeypatch.setenv("F1_DATA_DIR", str(tmp_path / "lake"))
+    monkeypatch.setenv("F1_REQUEST_INTERVAL_SECONDS", "0")
+    get_settings.cache_clear()
+    test = AppTest.from_function(_policy_script, default_timeout=TIMEOUT)
+    test.run()
+    assert not test.exception
+    yield test
+    get_settings.cache_clear()
+
+
+def _kinds_text(app: AppTest) -> str:
+    return next(m.value for m in app.markdown if m.value.startswith("kinds="))
+
+
+def test_editable_page_loads_qualifying_on_demand(policy_app, stub):
+    assert policy_app.multiselect(key="filter_kinds").value == ["race", "sprint"]
+    stub.calls.clear()
+
+    policy_app.multiselect(key="filter_kinds").set_value(["qualifying"]).run()
+
+    assert not policy_app.exception
+    assert _kinds_text(policy_app) == "kinds=qualifying"
+    result_calls = [c for c in stub.calls if c[0] is Endpoint.SESSION_RESULT]
+    assert [c[1][0].value for c in result_calls] == [(9161, 9165)]  # mantém a corrida
+
+
+def test_hidden_page_has_no_kinds_filter_and_keeps_choice(policy_app):
+    policy_app.multiselect(key="filter_kinds").set_value(["qualifying"]).run()
+
+    policy_app.session_state["_test_page"] = "hidden"
+    policy_app.run()
+    labels = [m.label for m in policy_app.sidebar.multiselect]
+    assert "Tipo de sessão" not in labels
+    assert _kinds_text(policy_app) == "kinds=race,sprint"
+
+    policy_app.session_state["_test_page"] = "editable"
+    policy_app.run()
+    assert policy_app.multiselect(key="filter_kinds").value == ["qualifying"]
+
+
+def test_locked_page_shows_disabled_filter_with_note(policy_app):
+    policy_app.session_state["_test_page"] = "locked"
+    policy_app.run()
+
+    locked = policy_app.multiselect(key="filter_kinds_locked")
+    assert locked.disabled
+    assert "Não se aplica a esta página" in policy_app.sidebar.caption[0].value
+    assert _kinds_text(policy_app) == "kinds=race,sprint"
+
+
+def test_empty_kinds_on_editable_page(policy_app, stub):
+    stub.calls.clear()
+    policy_app.multiselect(key="filter_kinds").set_value([]).run()
+
+    assert not policy_app.exception
+    assert _kinds_text(policy_app) == "kinds="
+    assert stub.calls == [] or all(
+        c[0] is not Endpoint.SESSION_RESULT for c in stub.calls
+    )
+
+
+def test_clear_filters_restores_session_kinds(policy_app):
+    policy_app.multiselect(key="filter_kinds").set_value(["practice"]).run()
+    policy_app.sidebar.button[0].click().run()
+
+    assert policy_app.multiselect(key="filter_kinds").value == ["race", "sprint"]

@@ -177,6 +177,8 @@ def summary_sentence(kpis: SeasonKpis) -> str:
     points = format_points(kpis.leader_points)
     if kpis.filtered:
         return _filtered_sentence(kpis, count, noun, points)
+    if kpis.leader_name is not None and kpis.in_progress:
+        return _in_progress_sentence(kpis, points)
     if kpis.leader_name is not None:
         leader = f"**{kpis.leader_name}** soma **{points}** pontos"
         who = "piloto venceu" if winners == 1 else "pilotos diferentes venceram"
@@ -187,6 +189,28 @@ def summary_sentence(kpis: SeasonKpis) -> str:
         who = "piloto terminou" if winners == 1 else "pilotos diferentes terminaram"
         return f"**{winners}** {who} em 1º nas **{count}** {noun} disputadas."
     return "Ainda não há resultados de corridas nesta temporada."
+
+
+def _progress(kpis: SeasonKpis) -> str:
+    noun = "corrida" if kpis.scheduled_races == 1 else "corridas"
+    return f"após **{kpis.races}** de **{kpis.scheduled_races}** {noun}"
+
+
+def _in_progress_sentence(kpis: SeasonKpis, points: str) -> str:
+    """Temporada em andamento: ``{líder} lidera com {pts} pontos após X de Y``."""
+    winners = kpis.distinct_winners
+    who = "piloto venceu" if winners == 1 else "pilotos diferentes venceram"
+    return (
+        f"**{kpis.leader_name}** lidera com **{points}** pontos {_progress(kpis)}; "
+        f"**{winners}** {who}."
+    )
+
+
+def races_card(kpis: SeasonKpis) -> tuple[str, str]:
+    """Valor e legenda do cartão "Corridas" (``feitas/total`` se em andamento)."""
+    if kpis.in_progress:
+        return f"{kpis.races}/{kpis.scheduled_races}", "Realizadas / previstas"
+    return str(kpis.races), "Grandes Prêmios da temporada"
 
 
 def _filtered_sentence(kpis: SeasonKpis, count: int, noun: str, points: str) -> str:
@@ -202,4 +226,6 @@ def _filtered_sentence(kpis: SeasonKpis, count: int, noun: str, points: str) -> 
         tail = f"**{winners}** {who} **{kpis.events_won}** de **{count}** {noun}"
     if kpis.leader_name is None:
         return tail[0].upper() + tail[1:] + "."
-    return f"**{kpis.leader_name}** lidera a seleção com **{points}** pontos; {tail}."
+    progress = f" {_progress(kpis)}" if kpis.in_progress else ""
+    leader = f"**{kpis.leader_name}** lidera a seleção com **{points}** pontos"
+    return f"{leader}{progress}; {tail}."

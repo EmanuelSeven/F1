@@ -12,6 +12,7 @@ próprios tipos (ex.: só classificação → poles).
 
 from collections.abc import Collection, Sequence
 from dataclasses import dataclass
+from datetime import datetime
 
 import pandas as pd
 
@@ -44,6 +45,13 @@ class SeasonKpis:
     filtered: bool = False  # seleção restrita por equipe/piloto
     primary: tuple[SessionKind, ...] = (SessionKind.RACE,)
     points_kinds: tuple[SessionKind, ...] = POINTS_KINDS
+    scheduled_races: int = 0  # corridas principais no calendário
+    upcoming_races: int = 0  # dessas, ainda não largaram
+
+    @property
+    def in_progress(self) -> bool:
+        """Há corridas futuras no calendário (temporada em andamento)."""
+        return self.upcoming_races > 0
 
 
 @dataclass(frozen=True)
@@ -82,6 +90,20 @@ def classified_sessions(sessions: pd.DataFrame) -> pd.DataFrame:
     df = df.loc[df["kind"].notna() & df["round"].notna()]
     columns = ["session_key", "meeting_key", "session_name", "kind", "round"]
     return df[[*columns, "date_start"]].reset_index(drop=True)
+
+
+@dataclass(frozen=True)
+class RaceSchedule:
+    scheduled: int
+    upcoming: int
+
+
+def race_schedule(sessions: pd.DataFrame, now: datetime) -> RaceSchedule:
+    """Corridas principais previstas no calendário e quantas ainda não largaram."""
+    races = points_sessions(sessions, (SessionKind.RACE,))
+    starts = pd.to_datetime(races["date_start"], utc=True)
+    upcoming = starts.isna() | (starts > pd.Timestamp(now))
+    return RaceSchedule(scheduled=len(races), upcoming=int(upcoming.sum()))
 
 
 def points_sessions(

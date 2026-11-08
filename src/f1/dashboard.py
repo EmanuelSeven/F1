@@ -18,10 +18,20 @@ from f1.config.settings import get_settings
 from f1.dashboard.views.lake import render_lake
 from f1.dashboard.views.season import render_season
 from f1.dashboard.views.sidebar import (
+    LAKE_PAGE,
+    SEASON_PAGE,
+    PageFilters,
     render_sidebar_filters,
     render_sidebar_footer,
 )
 from f1.dashboard.views.theme import inject_css, prevent_translation
+
+SEASON_TITLE = "Temporada"
+LAKE_TITLE = "Data Lake"
+PAGE_FILTERS: dict[str, PageFilters] = {
+    SEASON_TITLE: SEASON_PAGE,
+    LAKE_TITLE: LAKE_PAGE,
+}
 
 
 def main() -> None:
@@ -33,16 +43,17 @@ def main() -> None:
     pages = [
         st.Page(
             render_season,
-            title="Temporada",
+            title=SEASON_TITLE,
             icon="🏁",
             url_path="temporada",
             default=True,
         ),
-        st.Page(render_lake, title="Data Lake", icon="🗄️", url_path="data-lake"),
+        st.Page(render_lake, title=LAKE_TITLE, icon="🗄️", url_path="data-lake"),
     ]
     navigation = st.navigation(pages, position="top")
     data_dir = get_settings().data_dir
-    render_sidebar_filters(data_dir)  # comum a todas as páginas
+    # Barra lateral comum; cada página declara quais filtros usa.
+    render_sidebar_filters(data_dir, PAGE_FILTERS[navigation.title])
     navigation.run()
     render_sidebar_footer(data_dir)
 

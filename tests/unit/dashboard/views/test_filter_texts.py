@@ -9,12 +9,15 @@ from f1.dashboard.views.formatting import (
     events_noun,
     points_caption,
     points_subtitle,
+    races_card,
     session_label,
     summary_sentence,
     winners_caption,
 )
 from f1.dashboard.views.season import (
     HIGHLIGHT_STYLE,
+    chart_standings,
+    season_filter,
     selection_key,
     table_styles,
     winners_display,
@@ -201,3 +204,66 @@ def test_selection_key_changes_with_filters():
     assert base != selection_key(2024, SeasonFilter(teams=("Red Bull Racing",)))
     assert base != selection_key(2024, SeasonFilter(kinds=(Q,)))
     assert base == selection_key(2024, SeasonFilter(meeting_key=1229))  # só destaca
+
+
+# --- temporada em andamento ---------------------------------------------
+
+
+def _live(**overrides) -> SeasonKpis:
+    values = {
+        "filtered": False,
+        "races": 18,
+        "scheduled_races": 24,
+        "upcoming_races": 6,
+        "distinct_winners": 5,
+        "leader_name": "Lando Norris",
+        "leader_points": 301.0,
+    }
+    return _kpis(**{**values, **overrides})
+
+
+def test_in_progress_sentence():
+    assert summary_sentence(_live()) == (
+        "**Lando Norris** lidera com **301** pontos após **18** de **24** corridas; "
+        "**5** pilotos diferentes venceram."
+    )
+    assert summary_sentence(_live(distinct_winners=1)).endswith("**1** piloto venceu.")
+
+
+def test_in_progress_filtered_sentence_keeps_progress():
+    text = summary_sentence(
+        _live(filtered=True, distinct_winners=1, events_won=4, events=18)
+    )
+    assert text.startswith(
+        "**Lando Norris** lidera a seleção com **301** pontos após **18** de **24** "
+        "corridas;"
+    )
+
+
+def test_races_card():
+    assert races_card(_live()) == ("18/24", "Realizadas / previstas")
+    finished = _live(upcoming_races=0, races=24)
+    assert races_card(finished) == ("24", "Grandes Prêmios da temporada")
+    assert summary_sentence(finished).startswith("**Lando Norris** soma **301**")
+
+
+# --- página Temporada ---------------------------------------------------
+
+
+def test_chart_standings_hides_zero_points():
+    standings = pd.DataFrame(
+        {"acronym": ["VER", "HAM", "SAR"], "points": [10.0, 0.0, 0.0]}
+    )
+    assert chart_standings(standings, show_zero=False)["acronym"].tolist() == ["VER"]
+    assert chart_standings(standings, show_zero=True)["acronym"].tolist() == [
+        "VER",
+        "HAM",
+        "SAR",
+    ]
+
+
+def test_season_page_always_uses_races_and_sprints():
+    chosen = SeasonFilter(kinds=(Q, P), teams=("Ferrari",), meeting_key=1229)
+    page = season_filter(chosen)
+    assert page.kinds == (R, S)
+    assert (page.teams, page.meeting_key) == (("Ferrari",), 1229)

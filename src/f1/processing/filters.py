@@ -11,7 +11,8 @@ Semântica:
 """
 
 from collections.abc import Sequence
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
+from datetime import UTC, datetime
 
 import pandas as pd
 
@@ -23,6 +24,7 @@ from f1.processing.standings import (
     driver_directory,
     driver_numbers,
     driver_standings,
+    race_schedule,
     race_winners,
     season_kpis,
 )
@@ -123,12 +125,14 @@ def grand_prix_options(sessions: pd.DataFrame, meetings: pd.DataFrame) -> pd.Dat
     return df[["meeting_key", "round", "gp", "label"]].reset_index(drop=True)
 
 
-def season_view(
+def season_view(  # noqa: PLR0913 - datasets + filtro + relógio injetável
     results: pd.DataFrame,
     sessions: pd.DataFrame,
     meetings: pd.DataFrame,
     drivers: pd.DataFrame,
     filt: SeasonFilter,
+    *,
+    now: datetime | None = None,
 ) -> SeasonView:
     """Classificação, vencedores e KPIs da seleção."""
     allowed = allowed_drivers(drivers, filt)
@@ -143,6 +147,10 @@ def season_view(
     standings = standings.reset_index(drop=True)
     winners = winners.reset_index(drop=True)
     kpis = season_kpis(results, sessions, standings, filt.kinds, allowed)
+    schedule = race_schedule(sessions, now or datetime.now(UTC))
+    kpis = replace(
+        kpis, scheduled_races=schedule.scheduled, upcoming_races=schedule.upcoming
+    )
     return SeasonView(
         filter=filt,
         standings=standings,
