@@ -1108,7 +1108,7 @@
 <tr>
 <td><code>F1_SUPABASE_KEY</code></td>
 <td>vazio</td>
-<td>Chave <code>anon</code> (pública) do projeto Supabase</td>
+<td>Publishable key do projeto Supabase (<code>sb_publishable_...</code>)</td>
 </tr>
 </tbody>
 </table>
@@ -1218,7 +1218,7 @@
 <p>Um piloto que usou mais de um número no ano aparece uma única vez, com os pontos somados. Por exemplo, Oliver Bearman em 2024: #38 pela Ferrari e #50 pela Haas.</p>
 <p>Cada página mostra só os filtros que usa. Na <strong>Última corrida</strong>, o seletor de temporada aparece desabilitado, com o ano da corrida exibida e uma explicação, e os demais filtros ficam ocultos. Os valores escolhidos continuam guardados ao trocar de página.</p>
 <h3 id="contador-de-acessos">Contador de acessos<a class="headerlink" href="#contador-de-acessos" title="Permanent link">&para;</a></h3>
-<p>O total de acessos fica no <a href="https://supabase.com">Supabase</a> (Postgres), e não num arquivo local, porque o Streamlit Community Cloud apaga o disco a cada reinício. O dashboard chama a função <code>increment_page_views</code> pela API REST (<code>POST {F1_SUPABASE_URL}/rest/v1/rpc/increment_page_views</code>), com timeout de 3 s (<code>f1.dashboard.visits</code>).</p>
+<p>O total de acessos fica no <a href="https://supabase.com">Supabase</a> (Postgres), e não num arquivo local, porque o Streamlit Community Cloud apaga o disco a cada reinício. O dashboard chama a função <code>increment_page_views</code> pela API REST (<code>POST {F1_SUPABASE_URL}/rest/v1/rpc/increment_page_views</code>), enviando só o header <code>apikey</code> e com timeout de 3 s (<code>f1.dashboard.visits</code>). A publishable key (<code>sb_publishable_...</code>) não é um JWT, por isso não vai em <code>Authorization: Bearer</code>.</p>
 <ul>
 <li>Conta uma vez por sessão do navegador: o total fica em <code>st.session_state["page_views"]</code>, e trocar de página, mexer nos filtros ou qualquer rerun não conta de novo. Recarregar a aba (F5) abre uma nova sessão e conta.</li>
 <li>Qualquer falha (rede, timeout, HTTP, resposta inválida) gera um <code>logger.warning</code> com o evento <code>page_views_failed</code>, o total some do rodapé e o dashboard segue normal. A falha também fica guardada na sessão, para não repetir a requisição a cada rerun.</li>
@@ -1246,15 +1246,15 @@
 <a id="__codelineno-6-17" name="__codelineno-6-17" href="#__codelineno-6-17"></a><span class="k">revoke</span><span class="w"> </span><span class="k">all</span><span class="w"> </span><span class="k">on</span><span class="w"> </span><span class="k">function</span><span class="w"> </span><span class="k">public</span><span class="p">.</span><span class="n">increment_page_views</span><span class="p">()</span><span class="w"> </span><span class="k">from</span><span class="w"> </span><span class="k">public</span><span class="p">;</span>
 <a id="__codelineno-6-18" name="__codelineno-6-18" href="#__codelineno-6-18"></a><span class="k">grant</span><span class="w"> </span><span class="k">execute</span><span class="w"> </span><span class="k">on</span><span class="w"> </span><span class="k">function</span><span class="w"> </span><span class="k">public</span><span class="p">.</span><span class="n">increment_page_views</span><span class="p">()</span><span class="w"> </span><span class="k">to</span><span class="w"> </span><span class="n">anon</span><span class="p">;</span>
 </code></pre></div>
-<p>A tabela tem uma única linha (<code>id = 1</code>). Com RLS ligado e sem políticas, a chave <code>anon</code> não lê nem altera a tabela diretamente: ela só pode executar a função, que roda com os privilégios do dono (<code>security definer</code>) e apenas soma 1.</p>
+<p>A tabela tem uma única linha (<code>id = 1</code>). A publishable key entra no banco com o papel <code>anon</code>. Com RLS ligado e sem políticas, esse papel não lê nem altera a tabela diretamente: só pode executar a função, que roda com os privilégios do dono (<code>security definer</code>) e apenas soma 1.</p>
 </li>
 <li>
-<p>Em <strong>Project Settings → API</strong>, copie a URL do projeto e a chave <code>anon</code> (pública). Não use a chave <code>service_role</code>.</p>
+<p>Em <strong>Project Settings → API Keys</strong>, copie a <strong>publishable key</strong> (<code>sb_publishable_...</code>). A URL do projeto (<code>https://&lt;id&gt;.supabase.co</code>) fica em <strong>Project Settings → Data API</strong>. Não use a secret key (<code>sb_secret_...</code>) nem a <code>service_role</code>.</p>
 </li>
 <li>
 <p>Localmente, preencha <code>F1_SUPABASE_URL</code> e <code>F1_SUPABASE_KEY</code> no <code>.env</code>. No Streamlit Community Cloud, adicione as duas em <strong>Settings → Secrets</strong>, no nível raiz (o Streamlit expõe as chaves da raiz também como variáveis de ambiente):</p>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">F1_SUPABASE_URL</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"https://xyz.supabase.co"</span>
-<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="n">F1_SUPABASE_KEY</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"&lt;chave anon&gt;"</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="n">F1_SUPABASE_KEY</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"sb_publishable_..."</span>
 </code></pre></div>
 </li>
 </ol>
