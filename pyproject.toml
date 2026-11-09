@@ -12,7 +12,8 @@ dependencies = [
     "pandas (>=2.2,<3.0)",
     "pyarrow (>=18.0,<30.0)",
     "pandera (>=0.24,<1.0)",
-    "pydantic-settings (>=2.6,<3.0)"
+    "pydantic-settings (>=2.6,<3.0)",
+    "babel (>=2.14,<3.0)"
 ]
 
 [tool.poetry]

@@ -375,30 +375,38 @@ def test_clear_filters_restores_session_kinds(policy_app):
 # --- bandeira e banner na página Temporada --------------------------------
 
 
-def test_winners_table_shows_flag_before_winner(app):
+def _nationality_text(cell: str) -> str:
+    import base64  # noqa: PLC0415
+
+    return base64.b64decode(cell.split(",", 1)[1]).decode("utf-8")
+
+
+def test_winners_table_shows_nationality_after_winner(app):
     table = app.dataframe[0].value
     columns = list(table.columns)
-    assert columns.index("Nac.") == columns.index("Vencedor") - 1
-    assert table["Nac."].tolist() == ["https://flagcdn.com/w20/es.png"]
+    assert columns.index("Nacionalidade") == columns.index("Vencedor") + 1
+    assert "Nac." not in columns
+    cell = table["Nacionalidade"].iloc[0]
+    assert cell.startswith("data:image/svg+xml;base64,")
+    svg = _nationality_text(cell)
+    assert ">Espanha</text>" in svg  # country_code ESP → es → Babel
+    assert "<image" not in svg  # sem internet nos testes: só o nome
     assert table["GP"].tolist() == ["Singapore"]  # coluna GP inalterada
 
 
-def test_flag_falls_back_to_acronym_or_stays_empty(monkeypatch, tmp_path, openf1_data):
+def test_nationality_falls_back_to_acronym_or_stays_empty(
+    monkeypatch, tmp_path, openf1_data
+):
     data = as_season(openf1_data, 2024)
     for driver in data[Endpoint.DRIVERS]:  # como em 2026: country_code vazio
         driver["country_code"] = None
         if driver["name_acronym"] == "VER":
             driver["name_acronym"] = "CAM"  # sigla sem nacionalidade conhecida
-    winner = next(
-        r
-        for r in data[Endpoint.SESSION_RESULT]
-        if r["session_key"] == 9165 and r["driver_number"] == 55
-    )
-    winner["position"] = 1
     app = _season_app(monkeypatch, tmp_path, data)
 
-    assert app.dataframe[0].value["Nac."].tolist() == ["https://flagcdn.com/w20/es.png"]
-    assert "CAM" in _chart_labels(app)  # sem bandeira, mas sem quebrar
+    cell = app.dataframe[0].value["Nacionalidade"].iloc[0]
+    assert ">Espanha</text>" in _nationality_text(cell)  # SAI → es pela sigla
+    assert "CAM" in _chart_labels(app)  # sem nacionalidade, mas sem quebrar
 
 
 def test_season_header_is_a_hero_banner(monkeypatch, tmp_path, openf1_data):

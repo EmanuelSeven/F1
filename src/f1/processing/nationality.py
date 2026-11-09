@@ -15,7 +15,6 @@ from functools import lru_cache
 from importlib.resources import files
 from types import MappingProxyType
 
-FLAG_URL = "https://flagcdn.com/w20/{code}.png"
 NATIONALITIES_FILE = "driver_nationalities.json"
 
 # Códigos olímpicos usados pela F1 e equivalentes ISO alfa-3 → ISO alfa-2.
@@ -91,10 +90,3 @@ def nationality(country_code: object, acronym: object) -> str | None:
     if isinstance(acronym, str):
         return acronym_nationalities().get(acronym.strip().upper())
     return None
-
-
-def flag_url(code: object) -> str | None:
-    """URL da bandeira (imagem; o Windows não exibe emoji de bandeira)."""
-    if not isinstance(code, str) or len(code) != 2:  # noqa: PLR2004 - ISO alfa-2
-        return None
-    return FLAG_URL.format(code=code.lower())

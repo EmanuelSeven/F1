@@ -133,7 +133,7 @@ A **largada** vem do dataset `starting_grid`, baixado sob demanda por GP. A Open
 1. **Cabeçalho:** "Fórmula 1 · Temporada {ano}" (o ano vem da barra lateral). A data da última atualização dos dados aparece no rodapé da barra lateral. O título e a frase-resumo ficam num banner, em texto branco e alinhados à esquerda, com a arte `src/f1/dashboard/assets/hero_red.svg` embutida em base64 via CSS (`background-size: cover`, `background-position: right center`). Em telas estreitas a altura diminui sem cortar o texto. Sem o arquivo, aparece o cabeçalho normal.
 2. **Frase-resumo** gerada dos dados, por exemplo: "**Max Verstappen** soma **437** pontos; **7** pilotos diferentes venceram as **24** corridas." Com a **temporada em andamento** (há corridas futuras no calendário), ela vira "**{líder}** lidera com **{pts}** pontos após **{feitas}** de **{total}** corridas; **{n}** pilotos diferentes venceram."
 3. **Quatro KPIs:** corridas, sprints, vencedores diferentes (só corridas) e pontos do líder (corridas + sprints). Com a temporada em andamento, o cartão *Corridas* mostra "{feitas}/{total}" e a legenda "Realizadas / previstas".
-4. **Temporada:** à esquerda, *Pontos por piloto* (barras na cor da equipe; o tooltip mostra vitórias e pódios). O gráfico considera só corridas e sprints e esconde pilotos com 0 pontos; o botão "Mostrar pilotos sem pontos" (desligado por padrão) mostra todos. À direita, *Vencedores por corrida* (rodada, GP, data, vencedor e equipe). Os pontos vêm de `session_results.points`, que já traz a pontuação oficial de cada temporada (incluindo o ponto extra da volta mais rápida, que valeu até 2024).
+4. **Temporada:** à esquerda, *Pontos por piloto* (barras na cor da equipe; o tooltip mostra vitórias e pódios). O gráfico considera só corridas e sprints e esconde pilotos com 0 pontos; o botão "Mostrar pilotos sem pontos" (desligado por padrão) mostra todos. À direita, *Vencedores por corrida* (rodada, GP, data, vencedor, nacionalidade e equipe). Os pontos vêm de `session_results.points`, que já traz a pontuação oficial de cada temporada (incluindo o ponto extra da volta mais rápida, que valeu até 2024).
 5. **Clique em uma corrida** da tabela para ver os detalhes em abas: resultado final, tempos de volta (escolha de pilotos e opção de ocultar voltas lentas), estratégia de pneus, pit stops e clima.
 
 **Carga automática.** Ao abrir uma temporada que ainda não está no lake, o painel roda, com o aviso *"Carregando dados da OpenF1..."*:
@@ -156,6 +156,13 @@ Mensagens de erro:
 
 !!! note "Tradução automática do navegador"
     A interface já está em português e é marcada como não traduzível (`lang="pt-BR"`, `translate="no"`). Sem isso, o navegador traduzia siglas e nomes dos gráficos; por exemplo, "LAW" (Liam Lawson) virava "DIREITO" e aparecia cortado como "REITO".
+
+**Nacionalidade.** A coluna mostra a bandeira e o nome do país em português (ex.: Reino Unido), como uma imagem SVG gerada pelo painel, porque o Windows não exibe emoji de bandeira.
+
+- **País:** vem de `drivers.country_code` ou, se vier vazio, do mapeamento por sigla em `src/f1/processing/data/driver_nationalities.json`.
+- **Nome:** traduzido com Babel (`pt_BR`). Para trocar um nome, edite `COUNTRY_NAME_OVERRIDES` em `src/f1/dashboard/views/flags.py` (ex.: `{"NL": "Holanda"}`).
+- **Bandeira:** baixada de `flagcdn.com` uma vez e guardada em `F1_DATA_DIR/cache/flags`.
+- **Sem internet:** aparece só o nome do país.
 
 ### Voltas
 

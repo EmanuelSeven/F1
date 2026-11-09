@@ -4,7 +4,6 @@ from f1.domain.endpoints import Endpoint
 from f1.processing.nationality import (
     COUNTRY_ISO2,
     acronym_nationalities,
-    flag_url,
     nationality,
     to_iso2,
 )
@@ -72,13 +71,6 @@ def test_acronym_file_covers_examples_and_is_well_formed():
 )
 def test_nationality_fallback(code, acronym, expected):
     assert nationality(code, acronym) == expected
-
-
-def test_flag_url():
-    assert flag_url("gb") == "https://flagcdn.com/w20/gb.png"
-    assert flag_url("NL") == "https://flagcdn.com/w20/nl.png"
-    assert flag_url(None) is None
-    assert flag_url("gbr") is None
 
 
 def test_driver_info_country_uses_code_then_acronym():

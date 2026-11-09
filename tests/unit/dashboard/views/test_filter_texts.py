@@ -189,8 +189,16 @@ def _winners() -> pd.DataFrame:
 
 def test_winners_display_adds_session_column_when_needed():
     plain = winners_display(_winners())
-    assert list(plain.columns) == ["Rod.", "GP", "Data", "Nac.", "Vencedor", "Equipe"]
-    assert plain["Nac."].tolist() == ["https://flagcdn.com/w20/nl.png", None]
+    assert list(plain.columns) == [
+        "Rod.",
+        "GP",
+        "Data",
+        "Vencedor",
+        "Nacionalidade",
+        "Equipe",
+    ]
+    with_images = winners_display(_winners(), nationality=lambda c: c and f"img:{c}")
+    assert with_images["Nacionalidade"].tolist() == ["img:nl", None]
     by_session = winners_display(_winners(), with_session=True)
     assert by_session["Sessão"].tolist() == ["Sprint", "Classificação"]
     assert by_session["Equipe"].tolist() == ["■ Red Bull Racing", "■ Ferrari"]

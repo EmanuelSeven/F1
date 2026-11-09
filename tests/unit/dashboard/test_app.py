@@ -267,16 +267,16 @@ def test_winners_display_columns(populated_lake):
         "Rod.",
         "GP",
         "Data",
-        "Nac.",
         "Vencedor",
+        "Nacionalidade",
         "Equipe",
     ]
     assert display.iloc[0].tolist() == [
         1,
         "Singapore",  # coluna GP inalterada
         "17/09",
-        "https://flagcdn.com/w20/es.png",  # country_code ESP
         "SAI",
+        None,  # sem gerador de imagem: célula vazia
         "■ Ferrari",
     ]
 
