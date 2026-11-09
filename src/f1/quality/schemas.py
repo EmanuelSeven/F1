@@ -10,6 +10,7 @@ from f1.domain.endpoints import Endpoint, spec_for
 COMPOUNDS = ("SOFT", "MEDIUM", "HARD", "INTERMEDIATE", "WET", "UNKNOWN", "TEST_UNKNOWN")
 HEX_COLOUR = r"^[0-9A-Fa-f]{6}$"
 DATETIME = "datetime64[ns, UTC]"
+MAX_PIT_LANE_SECONDS = 4 * 60 * 60  # 14.400 s
 
 
 def _int(*checks: pa.Check) -> pa.Column:
@@ -173,7 +174,12 @@ SCHEMAS: Mapping[Endpoint, pa.DataFrameSchema] = MappingProxyType(
                 **_session_keys(),
                 "lap_number": _int(_range(1, 100)),
                 "date": _req(DATETIME),
-                "lane_duration": _opt("Float64", _range(0, 600, include_min=False)),
+                # Inclui o tempo parado no pit lane durante bandeira vermelha
+                # (ex.: México 2026, ~37 min). Teto de 4 h: nenhuma permanência
+                # no pit lane dura mais que a própria corrida.
+                "lane_duration": _opt(
+                    "Float64", _range(0, MAX_PIT_LANE_SECONDS, include_min=False)
+                ),
                 "stop_duration": _opt("Float64", _range(0, 120, include_min=False)),
             },
         ),

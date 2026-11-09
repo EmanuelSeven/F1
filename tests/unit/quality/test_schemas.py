@@ -64,3 +64,44 @@ def test_stints_schema_checks_compound_and_lap_order():
 def test_schema_rejects_extra_column():
     df = _laps().assign(extra=1)
     assert "column_in_schema" in _failed_checks(df, Endpoint.LAPS)
+
+
+# --- pit_stops: bandeira vermelha (regressão México 2026) ------------------
+
+
+def _pit(lane: float | None, lap: int = 44, driver: int = 30) -> dict:
+    return {
+        "session_key": 11404,
+        "meeting_key": 1298,
+        "driver_number": driver,
+        "lap_number": lap,
+        "date": "2026-11-01T21:43:05+00:00",
+        "lane_duration": lane,
+        "stop_duration": None,
+        "pit_duration": lane,
+    }
+
+
+def test_pit_lane_time_under_red_flag_is_valid():
+    """Regressão: 19 de 67 passagens (28,4%) com ~37 min de bandeira vermelha."""
+    df = normalize(Endpoint.PIT, [_pit(2191.6), _pit(2315.8, lap=45, driver=16)])
+    schema_for(Endpoint.PIT).validate(df, lazy=True)
+
+
+@pytest.mark.parametrize("lane", [99_999.0, 0.0, -5.0])
+def test_absurd_pit_lane_time_is_rejected(lane):
+    df = normalize(Endpoint.PIT, [_pit(lane)])
+    with pytest.raises(SchemaErrors) as exc:
+        schema_for(Endpoint.PIT).validate(df, lazy=True)
+    assert set(exc.value.failure_cases["column"]) == {"lane_duration"}
+
+
+def test_mexico_2026_red_flag_passes_the_quality_gate():
+    from f1.quality.validation import validate  # noqa: PLC0415
+
+    normal = [_pit(22.0 + i, lap=10 + i, driver=i + 1) for i in range(48)]
+    red_flag = [_pit(2172.9 + i, lap=44, driver=50 + i) for i in range(19)]
+    df = normalize(Endpoint.PIT, normal + red_flag)
+
+    result = validate(df, schema_for(Endpoint.PIT), max_rejection_rate=0.05)
+    assert (len(result.valid), len(result.rejected)) == (67, 0)

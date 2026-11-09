@@ -164,7 +164,7 @@ O campo depreciado `pit_duration` é descartado.
 | `driver_number` | `Int64` | sim | [1, 99] |
 | `lap_number` | `Int64` | sim | [1, 100] |
 | `date` | `datetime64[ns, UTC]` | sim | — |
-| `lane_duration` | `Float64` | não | (0, 600] |
+| `lane_duration` | `Float64` | não | (0, 14400] |
 | `stop_duration` | `Float64` | não | (0, 120] |
 
 ## `weather`
