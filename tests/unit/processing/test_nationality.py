@@ -73,6 +73,21 @@ def test_nationality_fallback(code, acronym, expected):
     assert nationality(code, acronym) == expected
 
 
+@pytest.mark.parametrize(
+    ("acronym", "iso2"),
+    [
+        ("VER", "nl"),
+        ("NOR", "gb"),
+        ("LEC", "mc"),
+        ("ANT", "it"),
+        ("BOR", "br"),
+    ],
+)
+def test_acronym_to_iso2_when_country_code_is_null(acronym, iso2):
+    """Sigla → ISO-2 pelo arquivo versionado quando a OpenF1 não manda o país."""
+    assert nationality(None, acronym) == iso2
+
+
 def test_driver_info_country_uses_code_then_acronym():
     drivers = normalize(
         Endpoint.DRIVERS,

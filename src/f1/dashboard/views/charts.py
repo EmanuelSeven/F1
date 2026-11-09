@@ -1,9 +1,11 @@
 """Gráficos Plotly do dashboard (DataFrame → Figure, sem Streamlit)."""
 
+from typing import Any
+
 import pandas as pd
 import plotly.graph_objects as go
 
-from f1.dashboard.views.driver_badge import country_label
+from f1.dashboard.views.driver_badge import country_label, flag_png_url
 from f1.dashboard.views.formatting import format_lap, format_points
 from f1.dashboard.views.theme import (
     COMPOUND_COLOURS,
@@ -13,10 +15,51 @@ from f1.dashboard.views.theme import (
 )
 
 BAR_HEIGHT = 26
+# Bandeiras do eixo Y (gráfico de pontos): altura em unidades de categoria
+# (1 = uma barra), caixa em fração da largura do gráfico e espaço, em pixels,
+# entre a sigla e o eixo para a bandeira caber.
+FLAG_SIZE_Y = 0.62
+FLAG_BOX_X = 0.07
+FLAG_GAP_X = 0.008
+FLAG_STANDOFF = 36
+
+
+def flag_images(acronyms: pd.Series, countries: pd.Series) -> list[dict[str, Any]]:
+    """Uma bandeira PNG por piloto com país, na altura da sua barra.
+
+    O eixo Y é categórico: a categoria ``i`` fica na posição ``i`` (ordem de
+    primeira aparição). A imagem fica à esquerda do início das barras, entre a
+    sigla e a barra. Piloto sem país conhecido fica sem bandeira.
+    """
+    positions = {a: i for i, a in enumerate(dict.fromkeys(acronyms))}
+    images: list[dict[str, Any]] = []
+    for acronym, country in zip(acronyms, countries, strict=True):
+        url = flag_png_url(country)
+        if url is None:
+            continue
+        images.append(
+            {
+                "source": url,
+                "xref": "paper",
+                "yref": "y",
+                "x": -FLAG_GAP_X,
+                "y": positions[acronym],
+                "sizex": FLAG_BOX_X,
+                "sizey": FLAG_SIZE_Y,
+                "xanchor": "right",
+                "yanchor": "middle",
+                "sizing": "contain",
+                "layer": "above",
+            }
+        )
+    return images
 
 
 def points_bar(standings: pd.DataFrame) -> go.Figure:
-    """Barras horizontais de pontos por piloto, líder no topo, cor da equipe."""
+    """Barras horizontais de pontos por piloto, líder no topo, cor da equipe.
+
+    A bandeira do país aparece entre a sigla e o início da barra.
+    """
     customdata = (
         standings[["name", "team", "wins", "podiums"]]
         .assign(country=[country_label(c) for c in standings["country"]])
@@ -42,17 +85,22 @@ def points_bar(standings: pd.DataFrame) -> go.Figure:
     )
     height = max(320, BAR_HEIGHT * len(standings) + 40)
     max_points = float(standings["points"].max()) if not standings.empty else 1.0
+    images = flag_images(standings["acronym"], standings["country"])
+    standoff = FLAG_STANDOFF if images else 0
     fig.update_layout(
         **base_layout(
             height,
             bargap=0.28,
             showlegend=False,
+            images=images,
+            margin={"l": 8 + standoff, "r": 24, "t": 8, "b": 8},
             xaxis={"visible": False, "range": [0, max_points * 1.12]},
             yaxis={
                 "autorange": "reversed",
                 "type": "category",
                 "tickfont": {"size": 12},
                 "gridcolor": "rgba(0,0,0,0)",
+                "ticklabelstandoff": standoff,
             },
         )
     )
