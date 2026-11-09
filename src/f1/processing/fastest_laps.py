@@ -96,4 +96,4 @@ def fastest_laps(  # noqa: PLR0913 - dados + opções de exibição explícitas
     df["gap"] = df["lap_duration"].astype(float) - best
     columns = ["position", "driver_number", "acronym", "name", "team", "colour"]
     extra = ["lap_duration", "gap", "lap_number", "session_key", "session_name", "kind"]
-    return df[[*columns, *extra]]
+    return df[[*columns, *extra, "country"]]

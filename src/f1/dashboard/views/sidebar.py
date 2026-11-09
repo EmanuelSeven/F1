@@ -267,7 +267,7 @@ def _detail_filters(
         _remember(KEY_TEAMS, chosen_teams)
         people = driver_options(data.drivers, data.sessions, chosen_teams)
         labels = {
-            int(n): f"{a} · {name}"
+            int(n): str(name)
             for n, a, name in zip(
                 people["driver_number"], people["acronym"], people["name"], strict=True
             )

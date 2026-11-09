@@ -1,14 +1,17 @@
 """Tabelas do dashboard: equipe com quadradinho colorido e linhas em destaque."""
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Iterable, Mapping, Sequence
 
 import pandas as pd
 import streamlit as st
+
+from f1.dashboard.views.driver_badge import flag_country_image
 
 ROW_HEIGHT = 35
 SQUARE = "■"
 TEAM_COLUMN = "Equipe"
 HIGHLIGHT_STYLE = "background-color: rgba(225, 6, 0, 0.22)"
+NATIONALITY_COLUMN = "Nacionalidade"  # logo após o piloto
 
 
 def team_label(team: object) -> str:
@@ -60,7 +63,7 @@ def render_table(  # noqa: PLR0913 - opções de exibição explícitas
         "width": "stretch",
         "height": height,
         "key": key,
-        "column_config": dict(column_config or {}),
+        "column_config": _column_config(display, column_config),
     }
     if not selectable:
         st.dataframe(styled, **options)  # type: ignore[call-overload]
@@ -70,3 +73,20 @@ def render_table(  # noqa: PLR0913 - opções de exibição explícitas
     )
     selection = getattr(event, "selection", None)
     return [int(r) for r in getattr(selection, "rows", [])]
+
+
+def nationality_cells(countries: Iterable[object]) -> list[str | None]:
+    """Células da coluna "Nacionalidade" (bandeira embutida + país)."""
+    return [flag_country_image(c if isinstance(c, str) else None) for c in countries]
+
+
+def _column_config(
+    display: pd.DataFrame, extra: Mapping[str, object] | None
+) -> dict[str, object]:
+    config: dict[str, object] = {}
+    if NATIONALITY_COLUMN in display.columns:
+        config[NATIONALITY_COLUMN] = st.column_config.ImageColumn(
+            NATIONALITY_COLUMN, width="medium"
+        )
+    config.update(extra or {})
+    return config

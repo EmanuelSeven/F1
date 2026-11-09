@@ -3,6 +3,7 @@
 import pandas as pd
 import plotly.graph_objects as go
 
+from f1.dashboard.views.driver_badge import country_label
 from f1.dashboard.views.formatting import format_lap, format_points
 from f1.dashboard.views.theme import (
     COMPOUND_COLOURS,
@@ -16,7 +17,11 @@ BAR_HEIGHT = 26
 
 def points_bar(standings: pd.DataFrame) -> go.Figure:
     """Barras horizontais de pontos por piloto, líder no topo, cor da equipe."""
-    customdata = standings[["name", "team", "wins", "podiums"]].to_numpy()
+    customdata = (
+        standings[["name", "team", "wins", "podiums"]]
+        .assign(country=[country_label(c) for c in standings["country"]])
+        .to_numpy()
+    )
     fig = go.Figure(
         go.Bar(
             x=standings["points"],
@@ -29,6 +34,7 @@ def points_bar(standings: pd.DataFrame) -> go.Figure:
             customdata=customdata,
             hovertemplate=(
                 "<b>%{customdata[0]}</b> · %{customdata[1]}<br>"
+                "País: %{customdata[4]}<br>"
                 "Pontos: %{x}<br>Vitórias: %{customdata[2]}<br>"
                 "Pódios: %{customdata[3]}<extra></extra>"
             ),
@@ -59,6 +65,7 @@ def lap_times_chart(laps: pd.DataFrame) -> go.Figure:
     seen_colours: set[str] = set()
     for acronym, rows in laps.groupby("acronym", sort=False):
         colour = str(rows["colour"].iloc[0])
+        country = country_label(rows["country"].iloc[0])
         dash = "dot" if colour in seen_colours else "solid"
         seen_colours.add(colour)
         fig.add_trace(
@@ -70,7 +77,8 @@ def lap_times_chart(laps: pd.DataFrame) -> go.Figure:
                 line={"color": colour, "width": 2, "dash": dash},
                 text=[format_lap(v) for v in rows["lap_duration"]],
                 hovertemplate=(
-                    f"<b>{acronym}</b> · volta %{{x}}<br>%{{text}}<extra></extra>"
+                    f"<b>{acronym}</b> ({country}) · volta %{{x}}<br>"
+                    "%{text}<extra></extra>"
                 ),
             )
         )
@@ -102,11 +110,11 @@ def tyre_strategy_chart(stints: pd.DataFrame) -> go.Figure:
                     "color": COMPOUND_COLOURS.get(name, MUTED),
                     "line": {"color": "#0F1115", "width": 1.5},
                 },
-                customdata=rows[
-                    ["lap_start", "lap_end", "tyre_age_at_start"]
-                ].to_numpy(),
+                customdata=rows[["lap_start", "lap_end", "tyre_age_at_start"]]
+                .assign(country=[country_label(c) for c in rows["country"]])
+                .to_numpy(),
                 hovertemplate=(
-                    "<b>%{y}</b> · "
+                    "<b>%{y}</b> (%{customdata[3]}) · "
                     + COMPOUND_LABELS.get(name, name.title())
                     + "<br>Voltas %{customdata[0]} a %{customdata[1]}"
                     "<br>Idade inicial: %{customdata[2]} voltas<extra></extra>"
@@ -179,7 +187,11 @@ def fastest_laps_chart(top: pd.DataFrame) -> go.Figure:
         format_lap(t) if g == 0 else f"{format_lap(t)}  {_gap_text(g)}"
         for t, g in zip(top["lap_duration"], top["gap"], strict=True)
     ]
-    customdata = top[["name", "team", "session_name", "lap_number"]].to_numpy()
+    customdata = (
+        top[["name", "team", "session_name", "lap_number"]]
+        .assign(country=[country_label(c) for c in top["country"]])
+        .to_numpy()
+    )
     fig = go.Figure(
         go.Scatter(
             x=top["lap_duration"],
@@ -192,6 +204,7 @@ def fastest_laps_chart(top: pd.DataFrame) -> go.Figure:
             customdata=customdata,
             hovertemplate=(
                 "<b>%{customdata[0]}</b> · %{customdata[1]}<br>"
+                "País: %{customdata[4]}<br>"
                 "%{customdata[2]}, volta %{customdata[3]}<extra></extra>"
             ),
         )

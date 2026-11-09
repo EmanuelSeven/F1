@@ -167,24 +167,34 @@ def prevent_translation() -> None:
     st.html(NO_TRANSLATE_SCRIPT, unsafe_allow_javascript=True)
 
 
-def kpi_card(label: str, value: str, caption: str) -> str:
-    """HTML de um cartão de KPI (valor grande + legenda pequena)."""
+def kpi_card(
+    label: str, value: str, caption: str, *, caption_html: bool = False
+) -> str:
+    """HTML de um cartão de KPI (valor grande + legenda pequena).
+
+    Com ``caption_html``, a legenda já vem em HTML escapado (ex.: bandeira).
+    """
+    caption_text = caption if caption_html else escape(caption)
     return (
         '<div class="kpi-card">'
         f'<div class="kpi-label">{escape(label)}</div>'
         f'<div class="kpi-value">{escape(value)}</div>'
-        f'<div class="kpi-caption">{escape(caption)}</div>'
+        f'<div class="kpi-caption">{caption_text}</div>'
         "</div>"
     )
 
 
-def section(title: str, subtitle: str | None = None) -> None:
-    """Título de seção (serifado) com subtítulo opcional."""
+def section(title: str, subtitle: str | None = None, *, html: bool = False) -> None:
+    """Título de seção (serifado) com subtítulo opcional.
+
+    Com ``html``, o subtítulo já vem em HTML escapado (ex.: bandeira).
+    """
     st.markdown(
         f'<div class="f1-section">{escape(title)}</div>', unsafe_allow_html=True
     )
     if subtitle:
-        subtitle_html = f'<div class="f1-subtitle">{escape(subtitle)}</div>'
+        text = subtitle if html else escape(subtitle)
+        subtitle_html = f'<div class="f1-subtitle">{text}</div>'
         st.markdown(subtitle_html, unsafe_allow_html=True)
 
 
@@ -218,12 +228,15 @@ def base_layout(height: int, **overrides: Any) -> dict[str, Any]:  # noqa: ANN40
     return layout
 
 
-def podium_card(place: str, driver: str, team: str, colour: str, time: str) -> str:
-    """HTML de um cartão do pódio, com a cor da equipe."""
+def podium_card(place: str, driver_html: str, team: str, colour: str, time: str) -> str:
+    """HTML de um cartão do pódio, com a cor da equipe.
+
+    ``driver_html`` já vem escapado, com a bandeira (``driver_badge``).
+    """
     return (
         f'<div class="podium-card" style="--team: {escape(colour)}">'
         f'<div class="podium-place">{escape(place)}</div>'
-        f'<div class="podium-driver">{escape(driver)}</div>'
+        f'<div class="podium-driver">{driver_html}</div>'
         f'<div class="podium-team" style="color: {escape(colour)}">{escape(team)}</div>'
         f'<div class="podium-time">{escape(time)}</div>'
         "</div>"

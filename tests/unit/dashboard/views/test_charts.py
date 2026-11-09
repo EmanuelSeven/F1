@@ -59,6 +59,7 @@ def test_lap_times_chart_dots_teammates():
             "colour": ["#3671C6", "#3671C6"],
             "lap_number": [2, 2],
             "lap_duration": [95.0, 95.5],
+            "country": ["nl", "mx"],
         }
     )
     fig = charts.lap_times_chart(laps)

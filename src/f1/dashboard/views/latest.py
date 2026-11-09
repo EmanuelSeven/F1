@@ -27,6 +27,7 @@ from f1.dashboard.views.data import (
     refresh_results,
     season_data,
 )
+from f1.dashboard.views.driver_badge import country_label, driver_html
 from f1.dashboard.views.formatting import (
     change_style,
     format_change,
@@ -36,7 +37,13 @@ from f1.dashboard.views.formatting import (
     status_code,
 )
 from f1.dashboard.views.sidebar import LATEST_PAGE, show_locked_season
-from f1.dashboard.views.tables import TEAM_COLUMN, render_table, team_label
+from f1.dashboard.views.tables import (
+    NATIONALITY_COLUMN,
+    TEAM_COLUMN,
+    nationality_cells,
+    render_table,
+    team_label,
+)
 from f1.dashboard.views.theme import kpi_card, podium_card, section
 from f1.domain.models import POINTS_KINDS
 from f1.processing.fastest_laps import fastest_laps
@@ -48,6 +55,7 @@ from f1.processing.last_race import (
     race_grid,
     race_highlights,
 )
+from f1.processing.nationality import to_iso2
 from f1.processing.standings import race_schedule, result_kinds
 
 PODIUM_PLACES = ("1º", "2º", "3º")
@@ -66,6 +74,12 @@ class LatestRace:
 def _meeting(data: SeasonData, meeting_key: int) -> pd.Series:
     rows = data.meetings.loc[data.meetings["meeting_key"] == meeting_key]
     return rows.iloc[0] if not rows.empty else pd.Series(dtype=object)
+
+
+def circuit_country(meeting: pd.Series) -> str:
+    """País do circuito em português (ex.: ``"Brasil"``), via ``country_code``."""
+    label = country_label(to_iso2(meeting.get("country_code")))
+    return label if label != "—" else str(meeting.get("country_name") or "—")
 
 
 def meeting_name(data: SeasonData, meeting_key: int) -> str:
@@ -106,6 +120,7 @@ def classification_display(table: pd.DataFrame) -> pd.DataFrame:
                 for r in rows
             ],
             "Piloto": table["name"],
+            NATIONALITY_COLUMN: nationality_cells(table["country"]),
             TEAM_COLUMN: [team_label(t) for t in table["team"]],
             "Largada": ["—" if pd.isna(g) else str(int(g)) for g in table["grid"]],
             "Posições": [format_change(g) for g in table["gained"]],
@@ -127,6 +142,7 @@ def championship_display(table: pd.DataFrame) -> pd.DataFrame:
         {
             "Pos.": table["position"],
             "Piloto": table["name"],
+            NATIONALITY_COLUMN: nationality_cells(table["country"]),
             TEAM_COLUMN: [team_label(t) for t in table["team"]],
             "Pontos": [format_points(float(p)) for p in table["points"]],
             "Variação": [format_change(c) for c in table["change"]],
@@ -138,7 +154,7 @@ def _header(latest: LatestRace, race: pd.Series) -> None:
     meeting = _meeting(latest.data, int(race["meeting_key"]))
     gp = meeting_name(latest.data, int(race["meeting_key"]))
     circuit = meeting.get("circuit_short_name") or meeting.get("location") or "—"
-    country = meeting.get("country_name") or "—"
+    country = circuit_country(meeting)
     title = f"{gp} · {circuit}, {country}"
     st.markdown(f'<div class="f1-title">{title}</div>', unsafe_allow_html=True)
     date = race["date_start"]
@@ -151,12 +167,15 @@ def _header(latest: LatestRace, race: pd.Series) -> None:
 def _podium(table: pd.DataFrame) -> None:
     top = table.loc[table["position"].isin([1, 2, 3])].head(3)
     for column, place, row in zip(
-        st.columns(3), PODIUM_PLACES, top.to_dict("records"), strict=False
+        st.columns(3),
+        PODIUM_PLACES,
+        [top.iloc[i] for i in range(len(top))],
+        strict=False,
     ):
         time = format_finish(row["position"], row["duration"], row["gap_to_leader"])
         column.markdown(
             podium_card(
-                place, str(row["name"]), str(row["team"]), str(row["colour"]), time
+                place, driver_html(row), str(row["team"]), str(row["colour"]), time
             ),
             unsafe_allow_html=True,
         )
@@ -170,17 +189,27 @@ def _highlights(table: pd.DataFrame, fastest: pd.DataFrame) -> None:
     fastest_caption = (
         "Sem tempos de volta"
         if facts.fastest_name is None
-        else f"{facts.fastest_name} · volta {facts.fastest_lap}"
+        else driver_html({"name": facts.fastest_name, "country": facts.fastest_country})
+        + f" · volta {facts.fastest_lap}"
     )
     gain_value = "—" if facts.top_gain is None else format_change(facts.top_gain)
-    gain_caption = facts.top_gainer_name or "Ninguém ganhou posições"
+    gain_caption = (
+        "Ninguém ganhou posições"
+        if facts.top_gainer_name is None
+        else driver_html(
+            {"name": facts.top_gainer_name, "country": facts.top_gainer_country}
+        )
+    )
     cards = (
         ("Volta mais rápida", fastest_value, fastest_caption),
         ("Mais posições ganhas", gain_value, gain_caption),
         ("Abandonos", str(facts.retirements), "DNF na corrida"),
     )
     for column, (label, value, caption) in zip(st.columns(3), cards, strict=True):
-        column.markdown(kpi_card(label, value, caption), unsafe_allow_html=True)
+        column.markdown(
+            kpi_card(label, value, caption, caption_html=True),
+            unsafe_allow_html=True,
+        )
 
 
 def render_latest() -> None:

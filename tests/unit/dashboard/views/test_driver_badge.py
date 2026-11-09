@@ -1,15 +1,20 @@
-"""Coluna "Nacionalidade": SVG com bandeira embutida + nome em português."""
+"""Módulo driver_badge: nacionalidade dos pilotos em todo o dashboard."""
 
 import base64
 import xml.etree.ElementTree as ET
 
 import pytest
 
-from f1.dashboard.views import flags
-from f1.dashboard.views.flags import (
+from f1.dashboard.views import driver_badge as flags
+from f1.dashboard.views.driver_badge import (
+    Nationality,
+    country_label,
     country_name,
+    driver_html,
     flag_base64,
-    nationality_image,
+    flag_country_image,
+    flag_html,
+    nationality_of,
     nationality_svg,
 )
 
@@ -122,14 +127,14 @@ def test_failed_download_is_not_cached(tmp_path):
 
 
 def test_nationality_image_with_and_without_flag(tmp_path):
-    with_flag = _decode(nationality_image("gb", tmp_path, lambda _code: FLAG))
+    with_flag = _decode(flag_country_image("gb", tmp_path, lambda _code: FLAG))
     assert "<image" in with_flag and ">Reino Unido</text>" in with_flag
 
-    offline = _decode(nationality_image("br", tmp_path, lambda _code: None))
+    offline = _decode(flag_country_image("br", tmp_path, lambda _code: None))
     assert "<image" not in offline and ">Brasil</text>" in offline
 
-    assert nationality_image(None, tmp_path) is None
-    assert nationality_image("", tmp_path) is None
+    assert flag_country_image(None, tmp_path) is None
+    assert flag_country_image("", tmp_path) is None
 
 
 def test_download_flag_handles_network_errors(monkeypatch):
@@ -140,5 +145,81 @@ def test_download_flag_handles_network_errors(monkeypatch):
 
     monkeypatch.undo()  # volta o download real (o fixture autouse o substitui)
     monkeypatch.setattr(flags.httpx, "get", boom)
-    assert flags.download_flag.__module__ == "f1.dashboard.views.flags"
+    assert flags.download_flag.__module__ == "f1.dashboard.views.driver_badge"
     assert flags.download_flag("gb") is None
+
+
+# --- nacionalidade de um piloto --------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("driver", "expected"),
+    [
+        ({"country": "gb"}, ("gb", "Reino Unido")),  # já calculado
+        ({"country_code": "NED", "acronym": "VER"}, ("nl", "Países Baixos")),
+        ({"country_code": None, "acronym": "LEC"}, ("mc", "Mônaco")),  # sigla
+        ({"country_code": "", "name_acronym": "ANT"}, ("it", "Itália")),
+        ({"country": None, "acronym": "NOR"}, ("gb", "Reino Unido")),
+    ],
+)
+def test_nationality_of(driver, expected):
+    assert nationality_of(driver) == Nationality(*expected)
+
+
+@pytest.mark.parametrize(
+    "driver", [{"acronym": "CAM"}, {}, {"country": "gbr"}, {"country": float("nan")}]
+)
+def test_nationality_of_unknown_is_none(driver):
+    assert nationality_of(driver) is None
+
+
+def test_nationality_of_accepts_a_table_row():
+    import pandas as pd  # noqa: PLC0415
+
+    row = pd.Series({"name": "Lando Norris", "acronym": "NOR", "country": "gb"})
+    assert nationality_of(row) == ("gb", "Reino Unido")
+
+
+def test_country_label():
+    assert country_label("br") == "Brasil"
+    assert country_label(None) == "—"
+
+
+# --- HTML para cartões e textos ---------------------------------------------
+
+
+def test_flag_html_is_a_small_embedded_image(tmp_path):
+    tag = flag_html("gb", tmp_path, lambda _code: FLAG)
+
+    assert tag.startswith('<img class="f1-flag" src="data:image/svg+xml;base64,')
+    assert 'width="20" height="14"' in tag
+    assert "border-radius: 2px" in tag and "box-shadow: 0 0 0 0.5px" in tag
+    assert 'alt="Reino Unido"' in tag
+    assert "flagcdn.com" not in tag  # embutida (funciona com o cache, sem rede)
+
+
+def test_flag_html_without_flag_is_empty(tmp_path):
+    assert flag_html("gb", tmp_path, lambda _code: None) == ""  # sem internet
+    assert flag_html(None, tmp_path) == ""
+    assert flag_html("xyz", tmp_path) == ""
+
+
+def test_driver_html(tmp_path):
+    driver = {"name": "Lando Norris", "acronym": "NOR", "country": "gb"}
+    html = driver_html(driver, tmp_path, lambda _code: FLAG)
+    assert html.startswith('<img class="f1-flag"')
+    assert html.endswith("Lando Norris")
+
+    flags._memory.clear()
+    offline = driver_html(driver, tmp_path / "x", lambda _code: None)
+    assert offline == "Lando Norris"  # sem bandeira, sem quebrar
+
+    unknown = driver_html({"name": "A <b>&</b>", "acronym": "CAM"}, tmp_path)
+    assert unknown == "A &lt;b&gt;&amp;&lt;/b&gt;"  # nome escapado, sem bandeira
+
+
+def test_flag_country_image_uses_default_cache_dir(monkeypatch, tmp_path):
+    monkeypatch.setattr(flags, "flags_cache_dir", lambda: tmp_path)
+    uri = flag_country_image("gb", download=lambda _code: FLAG)
+    assert "<image" in _decode(uri)
+    assert (tmp_path / "gb.svg").is_file()

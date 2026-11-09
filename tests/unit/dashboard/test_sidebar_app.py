@@ -94,8 +94,8 @@ def test_year_is_kept_in_query_params(monkeypatch, tmp_path, stub, openf1_data):
 def test_options_depend_on_the_year(app):
     assert app.multiselect(key="filter_teams").options == ["Ferrari", "Red Bull Racing"]
     assert app.multiselect(key="filter_drivers").options == [
-        "SAI · Carlos Sainz",
-        "VER · Max Verstappen",
+        "Carlos Sainz",
+        "Max Verstappen",
     ]
     assert app.selectbox(key="filter_gp").options == ["Todos", "1 · Singapore"]
 
@@ -107,7 +107,7 @@ def test_team_filter_restricts_chart_table_and_summary(app):
 
     assert not app.exception
     assert _chart_labels(app) == ["VER"]
-    assert app.multiselect(key="filter_drivers").options == ["VER · Max Verstappen"]
+    assert app.multiselect(key="filter_drivers").options == ["Max Verstappen"]
     html = _html(app)
     assert "<strong>Max Verstappen</strong> lidera a seleção" in html
     assert "nenhum piloto da seleção venceu" in html

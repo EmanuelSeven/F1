@@ -88,9 +88,9 @@ def season_page_script() -> None:
 @pytest.fixture(autouse=True)
 def offline_flags(monkeypatch):
     """Sem rede nos testes: o download de bandeiras falha (só o nome do país)."""
-    from f1.dashboard.views import flags  # noqa: PLC0415
+    from f1.dashboard.views import driver_badge  # noqa: PLC0415
 
-    monkeypatch.setattr(flags, "download_flag", lambda _code: None)
-    flags._memory.clear()
+    monkeypatch.setattr(driver_badge, "download_flag", lambda _code: None)
+    driver_badge._memory.clear()
     yield
-    flags._memory.clear()
+    driver_badge._memory.clear()

@@ -1,5 +1,6 @@
 """Testes das páginas Streamlit com o AppTest (sem rede)."""
 
+import base64
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -276,14 +277,16 @@ def test_winners_display_columns(populated_lake):
         "Nacionalidade",
         "Equipe",
     ]
-    assert display.iloc[0].tolist() == [
+    row = display.iloc[0]
+    assert [row["Rod."], row["GP"], row["Data"], row["Vencedor"], row["Equipe"]] == [
         1,
         "Singapore",  # coluna GP inalterada
         "17/09",
         "SAI",
-        None,  # sem gerador de imagem: célula vazia
         "■ Ferrari",
     ]
+    cell = base64.b64decode(row["Nacionalidade"].split(",", 1)[1]).decode("utf-8")
+    assert ">Espanha</text>" in cell  # driver_badge (sem rede: só o nome)
 
 
 def test_race_details_quality_failure_shows_message(data_env, populated_lake, client):

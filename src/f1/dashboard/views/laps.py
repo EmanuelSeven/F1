@@ -5,6 +5,7 @@ corridas + sprints; Classificação costuma ter as voltas mais rápidas), Grande
 Prêmio (o circuito; com "Todos", o mais recente) e equipe/piloto.
 """
 
+import html
 from datetime import UTC, datetime
 
 import pandas as pd
@@ -13,13 +14,20 @@ import streamlit as st
 from f1.config.settings import get_settings
 from f1.dashboard.views import charts
 from f1.dashboard.views.data import ensure_laps, race_details, season_data
+from f1.dashboard.views.driver_badge import driver_html
 from f1.dashboard.views.formatting import (
     KIND_LABELS,
     format_lap,
     session_label,
 )
 from f1.dashboard.views.sidebar import current_filters
-from f1.dashboard.views.tables import TEAM_COLUMN, render_table, team_label
+from f1.dashboard.views.tables import (
+    NATIONALITY_COLUMN,
+    TEAM_COLUMN,
+    nationality_cells,
+    render_table,
+    team_label,
+)
 from f1.dashboard.views.theme import section
 from f1.domain.models import SessionKind
 from f1.processing.fastest_laps import (
@@ -58,6 +66,7 @@ def laps_display(top: pd.DataFrame) -> pd.DataFrame:
             "Pos.": top["position"],
             "Piloto": top["acronym"],
             "Nome": top["name"],
+            NATIONALITY_COLUMN: nationality_cells(top["country"]),
             TEAM_COLUMN: [team_label(t) for t in top["team"]],
             "Tempo": [format_lap(t) for t in top["lap_duration"]],
             "Diferença": [
@@ -123,8 +132,9 @@ def render_laps() -> None:
     best = top.iloc[0]
     st.markdown(
         f"Volta mais rápida: **{format_lap(best['lap_duration'])}**, de "
-        f"**{best['name']}** ({best['team']}), {session_label(best['session_name'])}"
-        f", volta {int(best['lap_number'])}."
+        f"**{driver_html(best)}** ({html.escape(str(best['team']))}), "
+        f"{session_label(best['session_name'])}, volta {int(best['lap_number'])}.",
+        unsafe_allow_html=True,
     )
     st.plotly_chart(
         charts.fastest_laps_chart(top),

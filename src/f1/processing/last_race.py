@@ -48,6 +48,8 @@ class RaceHighlights:
     top_gainer_name: str | None
     top_gain: int | None
     retirements: int
+    fastest_country: str | None = None  # ISO alfa-2
+    top_gainer_country: str | None = None
 
 
 def completed_races(sessions: pd.DataFrame, now: datetime) -> pd.DataFrame:
@@ -139,7 +141,14 @@ def race_highlights(
         top_gainer_name=None if gainer is None else str(gainer["name"]),
         top_gain=None if gainer is None else int(gainer["gained"]),
         retirements=int(classification["dnf"].fillna(False).astype(bool).sum()),
+        fastest_country=None if best is None else _country(best),
+        top_gainer_country=None if gainer is None else _country(gainer),
     )
+
+
+def _country(row: pd.Series) -> str | None:
+    value = row.get("country")
+    return value if isinstance(value, str) else None
 
 
 def _sessions_until(sessions: pd.DataFrame, round_number: int) -> pd.DataFrame:
@@ -176,7 +185,7 @@ def championship_after(
     )
     table["change"] = (table["previous"] - table["position"]).astype("Int64")
     columns = ["position", "acronym", "name", "team", "colour", "points"]
-    return table[[*columns, "previous", "change"]].reset_index(drop=True)
+    return table[[*columns, "previous", "change", "country"]].reset_index(drop=True)
 
 
 def has_completed_race(sessions: pd.DataFrame, now: datetime) -> bool:

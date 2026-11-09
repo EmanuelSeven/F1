@@ -151,6 +151,7 @@ def test_laps_display_and_kinds_text(top):
         "Pos.",
         "Piloto",
         "Nome",
+        "Nacionalidade",
         "Equipe",
         "Tempo",
         "Diferença",

@@ -5,8 +5,9 @@ deles está em ``f1.processing.filters``; leituras e cargas em
 ``f1.dashboard.views.data``. Este módulo só compõe a tela.
 """
 
+import html
 import re
-from collections.abc import Callable, Sequence
+from collections.abc import Sequence
 from dataclasses import replace
 from datetime import datetime
 from html import escape
@@ -24,7 +25,7 @@ from f1.dashboard.views.data import (
     season_data,
     try_load,
 )
-from f1.dashboard.views.flags import nationality_image
+from f1.dashboard.views.driver_badge import driver_html
 from f1.dashboard.views.formatting import (
     format_day_month,
     format_lap,
@@ -43,9 +44,11 @@ from f1.dashboard.views.formatting import (
 from f1.dashboard.views.sidebar import current_filters
 from f1.dashboard.views.tables import (
     HIGHLIGHT_STYLE,
+    NATIONALITY_COLUMN,
     ROW_HEIGHT,
     SQUARE,
     TEAM_COLUMN,
+    nationality_cells,
     render_table,
     table_styles,
     team_label,
@@ -65,7 +68,6 @@ from f1.processing.standings import (
 )
 
 PLOT_CONFIG = {"displayModeBar": False}
-NATIONALITY_COLUMN = "Nacionalidade"  # bandeira + país, após "Vencedor"
 __all__ = [  # reexportados (usados por testes e outras páginas)
     "HIGHLIGHT_STYLE",
     "ROW_HEIGHT",
@@ -93,13 +95,9 @@ def summary_html(kpis: SeasonKpis) -> str:
 
 
 def winners_display(
-    winners: pd.DataFrame,
-    *,
-    with_session: bool = False,
-    nationality: Callable[[object], str | None] | None = None,
+    winners: pd.DataFrame, *, with_session: bool = False
 ) -> pd.DataFrame:
-    """Tabela "Vencedores": ``nationality`` gera a imagem da coluna Nacionalidade."""
-    to_image = nationality or (lambda _code: None)
+    """Tabela "Vencedores por corrida" (Nacionalidade logo após o Vencedor)."""
     columns: dict[str, object] = {
         "Rod.": winners["round"].astype("Int64"),
         "GP": winners["gp"],
@@ -108,7 +106,7 @@ def winners_display(
         columns["Sessão"] = [session_label(n) for n in winners["session_name"]]
     columns["Data"] = [format_day_month(d) for d in winners["date_start"]]
     columns["Vencedor"] = winners["acronym"]
-    columns[NATIONALITY_COLUMN] = [to_image(c) for c in winners["country"]]
+    columns[NATIONALITY_COLUMN] = nationality_cells(winners["country"])
     columns[TEAM_COLUMN] = [team_label(t) for t in winners["team"]]
     return pd.DataFrame(columns)
 
@@ -123,6 +121,7 @@ def classification_display(classification: pd.DataFrame) -> pd.DataFrame:
             ],
             "Piloto": classification["acronym"],
             "Nome": classification["name"],
+            NATIONALITY_COLUMN: nationality_cells(classification["country"]),
             TEAM_COLUMN: [team_label(t) for t in classification["team"]],
             "Voltas": classification["number_of_laps"],
             "Tempo / diferença": [
@@ -143,6 +142,7 @@ def pit_stops_display(stops: pd.DataFrame) -> pd.DataFrame:
         {
             "Volta": stops["lap_number"],
             "Piloto": stops["acronym"],
+            NATIONALITY_COLUMN: nationality_cells(stops["country"]),
             TEAM_COLUMN: [team_label(t) for t in stops["team"]],
             "Parada (s)": [format_seconds(v) for v in stops["stop_duration"]],
             "Pit lane (s)": [format_seconds(v) for v in stops["lane_duration"]],
@@ -164,11 +164,6 @@ def selection_key(year: int, filt: SeasonFilter) -> str:
 
 
 # --- componentes -----------------------------------------------------------
-
-
-def flags_cache_dir() -> Path:
-    """Cache em disco das bandeiras baixadas (fora das camadas do lake)."""
-    return get_settings().data_dir / "cache" / "flags"
 
 
 def _header(year: int, summary: str | None = None) -> None:
@@ -217,22 +212,13 @@ def _winners_column(view: SeasonView, year: int) -> pd.Series | None:
         st.info("Nenhuma vitória dos pilotos filtrados.")
         return None
     rows = render_table(
-        winners_display(
-            view.winners,
-            with_session=not by_race,
-            nationality=lambda code: nationality_image(
-                code if isinstance(code, str) else None, flags_cache_dir()
-            ),
-        ),
+        winners_display(view.winners, with_session=not by_race),
         view.winners["colour"].tolist(),
         key=selection_key(year, view.filter),
         selectable=True,
         highlight=view.highlighted_rows,
         column_config={
             "Rod.": st.column_config.NumberColumn(width=56),
-            NATIONALITY_COLUMN: st.column_config.ImageColumn(
-                NATIONALITY_COLUMN, width="medium"
-            ),
         },
     )
     return view.winners.iloc[rows[0]] if rows else None
@@ -358,7 +344,8 @@ def render_race_details(
     title = f"Rodada {int(race['round'])} · {race['gp']}"
     if not is_race:
         title += f" · {session_label(race.get('session_name', ''))}"
-    section(title, f"{when} · vencedor: {race['name']} ({race['team']})")
+    winner = f"{driver_html(race)} ({html.escape(str(race['team']))})"
+    section(title, f"{html.escape(when)} · vencedor: {winner}", html=True)
     classification = race_classification(data.results, data.drivers, session_key)
     tabs = st.tabs(list(DETAIL_TABS) if is_race else [DETAIL_TABS[0]])
     with tabs[0]:

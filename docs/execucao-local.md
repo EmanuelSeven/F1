@@ -157,7 +157,14 @@ Mensagens de erro:
 !!! note "Tradução automática do navegador"
     A interface já está em português e é marcada como não traduzível (`lang="pt-BR"`, `translate="no"`). Sem isso, o navegador traduzia siglas e nomes dos gráficos; por exemplo, "LAW" (Liam Lawson) virava "DIREITO" e aparecia cortado como "REITO".
 
-**Nacionalidade.** A coluna mostra a bandeira e o nome do país em português (ex.: Reino Unido), como uma imagem SVG gerada pelo painel, porque o Windows não exibe emoji de bandeira.
+**Nacionalidade dos pilotos (todo o dashboard).** Um único módulo, `src/f1/dashboard/views/driver_badge.py`, cuida da exibição em todas as páginas:
+
+- **Tabelas:** coluna *Nacionalidade* logo após o piloto, com a bandeira e o nome do país em português (ex.: Reino Unido). Aparece em vencedores por corrida, resultado e pit stops da corrida, classificação e campeonato da Última corrida, e Top 5 Voltas.
+- **Cartões e destaques:** bandeira antes do nome no pódio, na volta mais rápida, em quem mais ganhou posições e no vencedor dos detalhes da corrida.
+- **Gráficos:** país em português no tooltip de pontos por piloto, tempos de volta, estratégia de pneus e Top 5 Voltas. Os rótulos dos eixos não mudam.
+- **Filtro "Pilotos":** só o nome (a caixa de seleção não exibe imagens).
+
+As imagens são SVG geradas pelo painel, porque o Windows não exibe emoji de bandeira.
 
 - **País:** vem de `drivers.country_code` ou, se vier vazio, do mapeamento por sigla em `src/f1/processing/data/driver_nationalities.json`.
 - **Nome:** traduzido com Babel (`pt_BR`). Para trocar um nome, edite `COUNTRY_NAME_OVERRIDES` em `src/f1/dashboard/views/flags.py` (ex.: `{"NL": "Holanda"}`).

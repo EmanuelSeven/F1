@@ -102,6 +102,7 @@ def test_classification_with_grid_and_highlights(monkeypatch, lake, openf1_data)
     assert list(table.columns) == [
         "Pos.",
         "Piloto",
+        "Nacionalidade",
         "Equipe",
         "Largada",
         "Posições",

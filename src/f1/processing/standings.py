@@ -30,7 +30,15 @@ FALLBACK_COLOUR = "#9CA3AF"
 SLOW_LAP_FACTOR = 1.15
 PODIUM = 3
 
-_DRIVER_COLUMNS = ["session_key", "driver_number", "acronym", "name", "team", "colour"]
+_DRIVER_COLUMNS = [
+    "session_key",
+    "driver_number",
+    "acronym",
+    "name",
+    "team",
+    "colour",
+    "country",
+]
 
 
 @dataclass(frozen=True)
@@ -292,7 +300,7 @@ def driver_standings(
     ).reset_index(drop=True)
     table.insert(0, "position", range(1, len(table) + 1))
     columns = ["acronym", "name", "team", "colour", "points", "wins", "podiums"]
-    return table[["position", "driver_number", *columns, "driver_numbers"]]
+    return table[["position", "driver_number", *columns, "country", "driver_numbers"]]
 
 
 def race_winners(
@@ -388,7 +396,7 @@ def race_classification(
     ).reset_index(drop=True)
     columns = ["position", "driver_number", "acronym", "name", "team", "colour"]
     extra = ["number_of_laps", "duration", "gap_to_leader", "points", "dnf", "dns"]
-    return df[[*columns, *extra, "dsq"]]
+    return df[[*columns, *extra, "dsq", "country"]]
 
 
 def _with_driver(
@@ -424,7 +432,7 @@ def lap_times(
         df = df.loc[keep]
     df = df.sort_values(["driver_number", "lap_number"], kind="stable")
     columns = ["driver_number", "acronym", "colour", "lap_number", "lap_duration"]
-    return df[columns].reset_index(drop=True)
+    return df[[*columns, "country"]].reset_index(drop=True)
 
 
 def tyre_stints(
@@ -442,7 +450,8 @@ def tyre_stints(
     df["_order"] = df["acronym"].map(rank).fillna(len(rank))
     df = df.sort_values(["_order", "acronym", "stint_number"], kind="stable")
     columns = ["driver_number", "acronym", "stint_number", "compound", "lap_start"]
-    return df[[*columns, "lap_end", "laps", "tyre_age_at_start"]].reset_index(drop=True)
+    tail = ["lap_end", "laps", "tyre_age_at_start", "country"]
+    return df[[*columns, *tail]].reset_index(drop=True)
 
 
 def pit_stops(
@@ -453,7 +462,8 @@ def pit_stops(
     df["team"] = df["team"].fillna("—")
     df = df.sort_values(["lap_number", "acronym"], kind="stable")
     columns = ["lap_number", "driver_number", "acronym", "team", "colour"]
-    return df[[*columns, "stop_duration", "lane_duration"]].reset_index(drop=True)
+    tail = ["stop_duration", "lane_duration", "country"]
+    return df[[*columns, *tail]].reset_index(drop=True)
 
 
 def session_weather(weather: pd.DataFrame, session_key: int) -> pd.DataFrame:

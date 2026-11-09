@@ -216,8 +216,9 @@ def test_winners_display_adds_session_column_when_needed():
         "Nacionalidade",
         "Equipe",
     ]
-    with_images = winners_display(_winners(), nationality=lambda c: c and f"img:{c}")
-    assert with_images["Nacionalidade"].tolist() == ["img:nl", None]
+    cells = plain["Nacionalidade"].tolist()
+    assert cells[0].startswith("data:image/svg+xml;base64,")  # driver_badge
+    assert cells[1] is None  # sem nacionalidade conhecida
     by_session = winners_display(_winners(), with_session=True)
     assert by_session["Sessão"].tolist() == ["Sprint", "Classificação"]
     assert by_session["Equipe"].tolist() == ["■ Red Bull Racing", "■ Ferrari"]
