@@ -12,7 +12,7 @@ Todas as tabelas também recebem as colunas de linhagem:
 
 A quarentena (`data/quarantine/<dataset>/...`) tem as mesmas colunas e mais `_reject_reason` (`coluna:regra` separados por `;`).
 
-O histórico de rejeições (`data/rejection_history/<dataset>/season=Y[/meeting_key=N]/run_id=<id>.parquet`) guarda, por carga, uma linha por regra violada: `run_id`, `recorded_at`, `dataset`, `season`, `meeting_key`, `rule`, `rejected`, `records_read` e `aborted`. Uma carga sem rejeições grava uma linha com `rule` nulo e `rejected = 0`.
+O histórico de rejeições (`data/rejection_history/<dataset>/season=Y[/meeting_key=N]/run_id=<id>.parquet`) guarda, por carga, uma linha por regra violada: `run_id`, `recorded_at`, `dataset`, `season`, `meeting_key`, `rule`, `rejected`, `records_read`, `aborted` e `rows_rejected` (linhas rejeitadas na carga, cada uma contada uma vez, mesmo violando várias regras). Uma carga sem rejeições grava uma linha com `rule` nulo e `rejected = 0`.
 
 Formato: Parquet `zstd`, um arquivo `part-00000.parquet` por partição.
 

@@ -26,6 +26,9 @@ RULE = "rule"
 REJECTED = "rejected"
 RECORDS_READ = "records_read"
 ABORTED = "aborted"
+# Linhas rejeitadas na carga (cada linha conta uma vez, mesmo violando várias
+# regras). Ausente nos arquivos gravados antes desta coluna existir.
+ROWS_REJECTED = "rows_rejected"
 
 COLUMNS: dict[str, str] = {
     RUN_ID: "string",
@@ -37,6 +40,7 @@ COLUMNS: dict[str, str] = {
     REJECTED: "Int64",
     RECORDS_READ: "Int64",
     ABORTED: "boolean",
+    ROWS_REJECTED: "Int64",
 }
 
 
@@ -86,6 +90,7 @@ def rejection_rows(  # noqa: PLR0913 - uma linha do histórico tem estes campos
             REJECTED: values,
             RECORDS_READ: [records_read] * size,
             ABORTED: [aborted] * size,
+            ROWS_REJECTED: [len(rejected)] * size,
         }
     )
     return frame.astype(COLUMNS)

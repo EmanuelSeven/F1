@@ -221,7 +221,9 @@ def load_rejection_history(data_dir: Path) -> pd.DataFrame:
     frames = [f for f in frames if not f.empty]
     if not frames:
         return history.empty_history()
-    return pd.concat(frames, ignore_index=True).astype(history.COLUMNS)
+    # Arquivos antigos podem não ter colunas novas (ex.: ``rows_rejected``).
+    frame = pd.concat(frames, ignore_index=True).reindex(columns=list(history.COLUMNS))
+    return frame.astype(history.COLUMNS)
 
 
 TREND_COLUMNS = [
@@ -233,6 +235,70 @@ TREND_COLUMNS = [
     "rate",
     history.ABORTED,
 ]
+TOTAL_COLUMNS = [
+    history.RUN_ID,
+    history.RECORDED_AT,
+    history.REJECTED,
+    history.RECORDS_READ,
+    "rate",
+    history.ABORTED,
+]
+
+
+def _dataset_rows(
+    rows: pd.DataFrame, dataset: str, meeting_key: int | None
+) -> pd.DataFrame:
+    rows = rows[rows[history.DATASET] == dataset]
+    if meeting_key is not None:
+        rows = rows[rows[history.MEETING_KEY] == meeting_key]
+    return rows
+
+
+def _runs(rows: pd.DataFrame) -> pd.DataFrame:
+    """Uma linha por carga: soma das partições que ela gravou.
+
+    ``rows_rejected`` conta cada linha rejeitada uma vez. Em arquivos antigos,
+    sem essa coluna, usa a soma das contagens por regra.
+    """
+    partition = [history.RUN_ID, history.SEASON, history.MEETING_KEY]
+    per_partition = rows.groupby(partition, as_index=False, dropna=False).agg(
+        recorded_at=(history.RECORDED_AT, "min"),
+        records_read=(history.RECORDS_READ, "max"),
+        aborted=(history.ABORTED, "any"),
+        rows_rejected=(history.ROWS_REJECTED, "max"),
+        rule_sum=(history.REJECTED, "sum"),
+    )
+    per_partition["rows_rejected"] = per_partition["rows_rejected"].fillna(
+        per_partition["rule_sum"]
+    )
+    return per_partition.groupby(history.RUN_ID, as_index=False).agg(
+        recorded_at=(history.RECORDED_AT, "min"),
+        records_read=(history.RECORDS_READ, "sum"),
+        aborted=(history.ABORTED, "any"),
+        rows_rejected=("rows_rejected", "sum"),
+    )
+
+
+def _rate(rejected: pd.Series, read: pd.Series) -> pd.Series:
+    total = read.astype(float)
+    return (rejected.astype(float) / total.where(total > 0)).fillna(0.0)
+
+
+def rejection_totals(
+    rows: pd.DataFrame, dataset: str, meeting_key: int | None = None
+) -> pd.DataFrame:
+    """Taxa total de rejeição por carga de um dataset, em ordem cronológica.
+
+    Inclui cargas sem rejeição (taxa 0): a linha do gráfico aparece desde a
+    primeira carga.
+    """
+    rows = _dataset_rows(rows, dataset, meeting_key)
+    if rows.empty:
+        return pd.DataFrame(columns=TOTAL_COLUMNS)
+    runs = _runs(rows).rename(columns={"rows_rejected": history.REJECTED})
+    runs[history.REJECTED] = runs[history.REJECTED].astype(int)
+    runs["rate"] = _rate(runs[history.REJECTED], runs[history.RECORDS_READ])
+    return runs.sort_values(history.RECORDED_AT, ignore_index=True)[TOTAL_COLUMNS]
 
 
 def rejection_trend(
@@ -243,21 +309,10 @@ def rejection_trend(
     Cada carga soma as partições que gravou (ou só ``meeting_key``, se dado).
     Uma regra sem linhas numa carga que rodou conta como zero rejeições nela.
     """
-    rows = rows[rows[history.DATASET] == dataset]
-    if meeting_key is not None:
-        rows = rows[rows[history.MEETING_KEY] == meeting_key]
+    rows = _dataset_rows(rows, dataset, meeting_key)
     if rows.empty:
         return pd.DataFrame(columns=TREND_COLUMNS)
-    partition = [history.RUN_ID, history.SEASON, history.MEETING_KEY]
-    runs = (
-        rows.drop_duplicates(partition)
-        .groupby(history.RUN_ID, as_index=False)
-        .agg(
-            recorded_at=(history.RECORDED_AT, "min"),
-            records_read=(history.RECORDS_READ, "sum"),
-            aborted=(history.ABORTED, "any"),
-        )
-    )
+    runs = _runs(rows).drop(columns="rows_rejected")
     violated = rows.dropna(subset=[history.RULE])
     rules = sorted(violated[history.RULE].unique())
     if not rules:
@@ -268,8 +323,7 @@ def rejection_trend(
     grid = runs.merge(pd.DataFrame({history.RULE: rules}), how="cross")
     trend = grid.merge(counts, on=[history.RUN_ID, history.RULE], how="left")
     trend[history.REJECTED] = trend[history.REJECTED].fillna(0).astype(int)
-    read = trend[history.RECORDS_READ].astype(float)
-    trend["rate"] = (trend[history.REJECTED] / read.where(read > 0)).fillna(0.0)
+    trend["rate"] = _rate(trend[history.REJECTED], trend[history.RECORDS_READ])
     return trend.sort_values([history.RECORDED_AT, history.RULE], ignore_index=True)[
         TREND_COLUMNS
     ]

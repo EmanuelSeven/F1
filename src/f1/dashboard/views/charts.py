@@ -217,45 +217,62 @@ def weather_chart(weather: pd.DataFrame) -> go.Figure:
     return fig
 
 
-def rejection_trend_chart(trend: pd.DataFrame) -> go.Figure:
-    """Taxa de rejeição por carga, uma linha por regra.
+TOTAL_LABEL = "Total"
+TOTAL_COLOUR = "#E6E6E6"
+MIN_RATE_AXIS = 0.05  # com taxas ~0%, o eixo vai até 5% e a linha fica legível
 
+
+def _rate_trace(rows: pd.DataFrame, name: str, line: dict[str, Any]) -> go.Scatter:
+    symbols = ["x" if a else "circle" for a in rows["aborted"]]
+    return go.Scatter(
+        x=rows["recorded_at"],
+        y=rows["rate"],
+        mode="lines+markers",
+        name=name,
+        marker={"symbol": symbols, "size": 8},
+        line=line,
+        customdata=rows[["run_id", "rejected", "records_read"]]
+        .assign(status=["abortada" if a else "publicada" for a in rows["aborted"]])
+        .to_numpy(),
+        hovertemplate=(
+            f"<b>{name}</b><br>"
+            "%{y:.1%} (%{customdata[1]} de %{customdata[2]} registros)<br>"
+            "Carga %{customdata[3]} · run_id %{customdata[0]}<br>"
+            "%{x|%d/%m/%Y %H:%M} UTC<extra></extra>"
+        ),
+    )
+
+
+def rejection_trend_chart(totals: pd.DataFrame, trend: pd.DataFrame) -> go.Figure:
+    """Taxa de rejeição por carga: linha "Total" e uma linha por regra violada.
+
+    A linha total aparece desde a primeira carga, mesmo sem rejeições (0%).
     Cargas abortadas (taxa acima do limite) aparecem com marcador ``x``.
     """
-    fig = go.Figure()
+    fig = go.Figure(
+        _rate_trace(totals, TOTAL_LABEL, {"width": 3, "color": TOTAL_COLOUR})
+    )
     for rule, rows in trend.groupby("rule", sort=True):
-        symbols = ["x" if a else "circle" for a in rows["aborted"]]
-        fig.add_trace(
-            go.Scatter(
-                x=rows["recorded_at"],
-                y=rows["rate"],
-                mode="lines+markers",
-                name=str(rule),
-                marker={"symbol": symbols, "size": 8},
-                line={"width": 2},
-                customdata=rows[["run_id", "rejected", "records_read"]]
-                .assign(
-                    status=["abortada" if a else "publicada" for a in rows["aborted"]]
-                )
-                .to_numpy(),
-                hovertemplate=(
-                    f"<b>{rule}</b><br>"
-                    "%{y:.1%} (%{customdata[1]} de %{customdata[2]} registros)<br>"
-                    "Carga %{customdata[3]} · run_id %{customdata[0]}<br>"
-                    "%{x|%d/%m/%Y %H:%M} UTC<extra></extra>"
-                ),
-            )
-        )
+        fig.add_trace(_rate_trace(rows, str(rule), {"width": 2}))
+    highest = max(
+        (float(df["rate"].max()) for df in (totals, trend) if not df.empty),
+        default=0.0,
+    )
+    top = max(MIN_RATE_AXIS, highest * 1.15)
     fig.update_layout(
         **base_layout(
-            360,
-            xaxis={"title": "Carga (UTC)"},
+            380,
+            xaxis={"title": "Carga (UTC)", "tickformat": "%d/%m<br>%H:%M"},
             yaxis={
                 "title": "Taxa de rejeição",
                 "tickformat": ".0%",
-                "rangemode": "tozero",
+                # Folga abaixo de 0%: a linha em zero não fica colada no eixo.
+                "range": [-top * 0.04, top],
             },
             hovermode="closest",
+            showlegend=True,  # "Total" aparece na legenda mesmo sozinho
+            legend={"orientation": "h", "x": 0, "y": 1.02, "yanchor": "bottom"},
+            margin={"l": 8, "r": 24, "t": 36, "b": 8},
         )
     )
     return fig

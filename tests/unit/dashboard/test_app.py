@@ -245,6 +245,7 @@ def test_lake_page_shows_platform_metrics(data_env, populated_lake):
     app.selectbox(key="rejections_dataset").set_value("meetings").run()
     assert not app.exception
     assert "Nenhuma rejeição em 1 carga(s)" in app.success[0].value
+    assert len(app.get("plotly_chart")) == 1  # linha "Total" em 0%
 
     app.button[0].click().run()
     assert _metrics(app)["Registros processados"] == "31"
