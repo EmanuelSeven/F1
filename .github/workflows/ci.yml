@@ -1,22 +1,47 @@
 name: CI
 
 on:
-  pull_request:
   push:
-    branches: [main]
+    branches: [main, dev]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      integration:
+        description: "Rodar também os testes de integração (API OpenF1 real)"
+        type: boolean
+        default: false
+
+# Um push novo na mesma branch cancela a execução anterior.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: "3.13"
+  POETRY_NO_INTERACTION: "1"
+  POETRY_VIRTUALENVS_IN_PROJECT: "true"
 
 jobs:
   quality:
+    name: Qualidade, testes e docs
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.13"
-
       - name: Instalar Poetry
         run: pipx install poetry
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: poetry
+
+      - name: Validar pyproject.toml e poetry.lock
+        run: poetry check --lock
 
       - name: Instalar dependências
         run: poetry install --with docs
@@ -25,15 +50,96 @@ jobs:
         run: poetry run ruff format --check .
 
       - name: Lint
-        run: poetry run ruff check .
+        run: poetry run ruff check --output-format=github .
 
       - name: Tipagem
+        # src/f1/dashboard.py tem o mesmo nome de módulo do pacote f1/dashboard/
+        # e não é visto por `mypy src`; por isso é checado à parte.
         run: |
           poetry run mypy src
           poetry run mypy src/f1/dashboard.py
 
-      - name: Testes
-        run: poetry run pytest -m "not integration"
+      - name: Testes (cobertura mínima de 50%)
+        run: poetry run pytest -m "not integration" --cov-report=xml
+
+      - name: Metas de cobertura por camada
+        # Metas do SKILL.md §5.1: acompanhadas na revisão, não bloqueiam o build.
+        continue-on-error: true
+        run: |
+          poetry run coverage report --include="src/f1/domain/*,src/f1/quality/*,src/f1/processing/*" --fail-under=80
+          poetry run coverage report --include="src/f1/ingestion/*,src/f1/storage/*,src/f1/pipelines/*" --fail-under=70
+
+      - name: Resumo da cobertura
+        if: always()
+        run: |
+          {
+            echo "## Cobertura"
+            echo '```'
+            poetry run coverage report --skip-covered
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publicar relatório de cobertura
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-xml
+          path: coverage.xml
+          if-no-files-found: ignore
 
       - name: Documentação
         run: poetry run mkdocs build --strict
+
+  docs-deploy:
+    name: Publicar documentação (gh-pages)
+    needs: quality
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Instalar Poetry
+        run: pipx install poetry
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: poetry
+
+      - name: Instalar dependências de documentação
+        run: poetry install --only docs --no-root
+
+      - name: Publicar no gh-pages
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          poetry run mkdocs gh-deploy --force --strict
+
+  integration:
+    name: Testes de integração (API real)
+    needs: quality
+    if: github.event_name == 'workflow_dispatch' && inputs.integration
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar Poetry
+        run: pipx install poetry
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: poetry
+
+      - name: Instalar dependências
+        run: poetry install
+
+      - name: Testes de integração
+        # Pulados automaticamente se a OpenF1 estiver bloqueada por sessão ao vivo (401).
+        run: poetry run pytest -m integration --no-cov -rs

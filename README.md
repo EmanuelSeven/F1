@@ -1,5 +1,8 @@
 # F1
 
+[![CI](https://github.com/EmanuelSeven/F1/actions/workflows/ci.yml/badge.svg)](https://github.com/EmanuelSeven/F1/actions/workflows/ci.yml)
+[![Docs](https://img.shields.io/badge/docs-gh--pages-red)](https://emanuelseven.github.io/F1/)
+
 Pipeline de engenharia de dados em Python 3.13 que extrai dados históricos (2023+) da [OpenF1 API](https://openf1.org/docs/) e os grava num data lake local: **bronze** (JSON bruto), **silver** (Parquet tipado, validado e particionado) e **quarentena** (registros rejeitados).
 
 Datasets: `meetings`, `sessions`, `drivers`, `session_results`, `laps`, `stints`, `pit_stops`, `weather`.
