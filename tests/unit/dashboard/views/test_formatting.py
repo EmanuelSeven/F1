@@ -4,6 +4,7 @@ import pandas as pd
 import pytest
 
 from f1.dashboard.views.formatting import (
+    format_count,
     format_day_month,
     format_gap,
     format_lap,
@@ -23,6 +24,14 @@ from f1.processing.standings import SeasonKpis
 )
 def test_format_points(value, expected):
     assert format_points(value) == expected
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [(0, "0"), (999, "999"), (1234, "1.234"), (1234567, "1.234.567")],
+)
+def test_format_count(value, expected):
+    assert format_count(value) == expected
 
 
 def test_format_lap_and_race_time():

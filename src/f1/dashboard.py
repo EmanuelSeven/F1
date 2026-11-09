@@ -29,6 +29,7 @@ from f1.dashboard.views.sidebar import (
     render_sidebar_footer,
 )
 from f1.dashboard.views.theme import inject_css, prevent_translation
+from f1.dashboard.visits import session_page_views
 
 LATEST_TITLE = "Última corrida"
 SEASON_TITLE = "Temporada"
@@ -63,11 +64,13 @@ def main() -> None:
     # A navegação é desenhada na barra lateral (acima dos filtros) pela própria
     # barra lateral; aqui ela só registra as páginas.
     navigation = st.navigation(pages, position="hidden")
-    data_dir = get_settings().data_dir
+    settings = get_settings()
+    data_dir = settings.data_dir
     # Barra lateral comum; cada página declara quais filtros usa.
     render_sidebar_filters(data_dir, PAGE_FILTERS[navigation.title], pages)
     navigation.run()
-    render_sidebar_footer(data_dir)
+    # Depois da página: a requisição ao contador não atrasa o conteúdo.
+    render_sidebar_footer(data_dir, session_page_views(settings))
 
 
 if __name__ == "__main__":

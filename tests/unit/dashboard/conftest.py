@@ -86,6 +86,13 @@ def season_page_script() -> None:
 
 
 @pytest.fixture(autouse=True)
+def no_page_views(monkeypatch):
+    """Contador de acessos desligado, mesmo com F1_SUPABASE_* num ``.env`` local."""
+    monkeypatch.setenv("F1_SUPABASE_URL", "")
+    monkeypatch.setenv("F1_SUPABASE_KEY", "")
+
+
+@pytest.fixture(autouse=True)
 def offline_flags(monkeypatch):
     """Sem rede nos testes: o download de bandeiras falha (só o nome do país)."""
     from f1.dashboard.views import driver_badge  # noqa: PLC0415

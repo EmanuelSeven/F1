@@ -25,7 +25,7 @@ from f1.dashboard.views.data import (
     refresh_bucket,
     season_data,
 )
-from f1.dashboard.views.formatting import KIND_LABELS, format_brasilia
+from f1.dashboard.views.formatting import KIND_LABELS, format_brasilia, format_count
 from f1.domain.models import POINTS_KINDS, SessionKind
 from f1.processing.filters import (
     SeasonFilter,
@@ -360,9 +360,12 @@ def show_locked_season(year: int, note: str | None = None) -> None:
     )
 
 
-def render_sidebar_footer(data_dir: Path) -> None:
-    """Rodapé com a fonte e a data da última ingestão no lake."""
+def render_sidebar_footer(data_dir: Path, page_views: int | None = None) -> None:
+    """Rodapé com a fonte, a data da última ingestão e o total de acessos."""
     summary = lake_summary(data_dir)
     run = summary.last_run
     when = format_brasilia(run.ingested_at if run else None)
-    st.sidebar.caption(f"Dados: OpenF1 · última atualização {when}")
+    text = f"Dados: OpenF1 · última atualização {when}"
+    if page_views is not None:
+        text += f" · 👁️ {format_count(page_views)} acessos"
+    st.sidebar.caption(text)

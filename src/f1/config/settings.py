@@ -20,6 +20,9 @@ class Settings(BaseSettings):
     http_max_retries: int = Field(default=5, ge=0)
     request_interval_seconds: float = Field(default=0.5, ge=0)
     max_rejection_rate: float = Field(default=0.05, ge=0, le=1)
+    # Contador de acessos do dashboard (Supabase); vazio = desligado.
+    supabase_url: str | None = None
+    supabase_key: str | None = None
 
 
 @lru_cache

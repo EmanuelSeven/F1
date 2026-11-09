@@ -22,10 +22,15 @@ def _is_missing(value: object) -> bool:
         return False
 
 
+def format_count(value: int) -> str:
+    """Inteiro com separador de milhar pt-BR: ``1234`` → ``"1.234"``."""
+    return f"{value:,}".replace(",", ".")
+
+
 def format_points(value: float) -> str:
     """``437.0`` → ``"437"``; ``12.5`` → ``"12,5"``."""
     if float(value).is_integer():
-        return f"{int(value):,}".replace(",", ".")
+        return format_count(int(value))
     return f"{value:.1f}".replace(".", ",")
 
 
