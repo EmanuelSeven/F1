@@ -31,7 +31,9 @@ def register_visit(
     url, key = settings.supabase_url, settings.supabase_key
     if not url or not key:
         return None
-    headers = {"apikey": key, "Authorization": f"Bearer {key}"}
+    # Só ``apikey``: a publishable key (``sb_publishable_...``) não é um JWT,
+    # então não pode ir em ``Authorization: Bearer``.
+    headers = {"apikey": key}
     endpoint = url.rstrip("/") + RPC_PATH
     try:
         if client is None:

@@ -12,7 +12,7 @@ from f1.dashboard import visits
 from f1.dashboard.visits import RPC_PATH, register_visit
 
 URL = "https://projeto.supabase.co"
-KEY = "chave-anon"
+KEY = "sb_publishable_chave"
 
 
 def _settings(url: str | None = URL, key: str | None = KEY) -> Settings:
@@ -35,7 +35,7 @@ def test_success_returns_updated_total():
     assert request.method == "POST"
     assert str(request.url) == URL + RPC_PATH
     assert request.headers["apikey"] == KEY
-    assert request.headers["Authorization"] == f"Bearer {KEY}"
+    assert "Authorization" not in request.headers
     assert json.loads(request.content) == {}
 
 
