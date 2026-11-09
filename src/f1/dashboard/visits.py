@@ -63,6 +63,13 @@ def session_page_views(settings: Settings) -> int | None:
     """
     state = st.session_state
     if KEY_PAGE_VIEWS not in state:
-        state[KEY_PAGE_VIEWS] = register_visit(settings)
+        try:
+            total = register_visit(settings)
+        except Exception as exc:
+            # Ex.: ``Settings`` antigo em memória após atualizar o código sem
+            # reiniciar o app (AttributeError em ``supabase_url``).
+            logger.warning("page_views_failed", extra={"error": repr(exc)})
+            total = None
+        state[KEY_PAGE_VIEWS] = total
     value = state[KEY_PAGE_VIEWS]
     return value if isinstance(value, int) else None
