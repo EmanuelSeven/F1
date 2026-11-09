@@ -59,6 +59,7 @@ As implementações concretas são compostas em dois pontos de entrada: a CLI (`
 - **Voltas por união de sessões.** A partição `laps` é por meeting e é regravada inteira a cada carga. A página *Voltas* e os detalhes da corrida regravam a união das sessões que já estão no lake com as novas, para que uma carga não apague as voltas da outra.
 - **Piloto, não número.** A classificação agrupa por piloto: quem trocou de número no ano (ex.: Bearman, #38 e #50 em 2024) aparece uma vez, com os pontos somados.
 - **Sprints.** Na OpenF1 a sprint tem `session_type="Race"` e `session_name="Sprint"`; `SessionRef.is_race`, `is_sprint` e `awards_points` encapsulam essa regra.
+- **Contador de acessos fora do disco.** O Streamlit Community Cloud apaga o disco a cada reinício, então o total fica numa tabela do Supabase, incrementada por uma função Postgres chamada pela API REST com `httpx` (sem SDK). É opcional (`F1_SUPABASE_URL`/`F1_SUPABASE_KEY`), conta uma vez por sessão do navegador e nunca derruba o dashboard: em erro, só registra um aviso e omite o total. Configuração em [Execução local](execucao-local.md#contador-de-acessos).
 - **Pontos** vêm de `session_results.points` (coluna adicionada nesta versão), que já inclui o ponto da volta mais rápida; vitórias e pódios contam apenas corridas principais.
 
 ## Observabilidade
