@@ -33,9 +33,10 @@ def test_count_by_rule_splits_rows_with_several_rules():
 
 def test_rejection_rows_one_per_rule():
     rows = _rows("r1", ["a:x; b:y", "a:x"])
-    assert rows[["rule", "rejected", "records_read"]].values.tolist() == [
-        ["a:x", 2, 10],
-        ["b:y", 1, 10],
+    columns = ["rule", "rejected", "records_read", "rows_rejected"]
+    assert rows[columns].values.tolist() == [
+        ["a:x", 2, 10, 2],  # rows_rejected: 2 linhas, mesmo com 3 violações
+        ["b:y", 1, 10, 2],
     ]
     assert rows["meeting_key"].tolist() == [1219, 1219]
 

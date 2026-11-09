@@ -11,10 +11,12 @@ from f1.dashboard.loaders import (
     load_layer_status,
     load_platform_summary,
     load_race_details,
+    load_rejection_history,
     load_season_data,
     race_details_loaded,
     read_dataset,
     read_lineage,
+    rejection_totals,
     rejection_trend,
     season_is_loaded,
 )
@@ -72,6 +74,36 @@ def test_rejection_trend_filters_meeting_and_dataset():
     assert trend[["run_id", "rate"]].values.tolist() == [["r2", 0.25]]
     assert rejection_trend(history, "stints").empty
     assert rejection_trend(_history(("r1", 10, 1, [], 10)), "laps").empty
+
+
+def test_rejection_totals_count_each_row_once_and_keep_clean_runs():
+    history = _history(
+        ("r1", 10, 1, ["a:x; b:y", "a:x"], 10),  # 2 linhas, 3 violações
+        ("r1", 10, 2, [], 10),
+        ("r2", 11, 1, [], 20),  # carga limpa: taxa 0
+    )
+
+    totals = rejection_totals(history, "laps")
+
+    assert totals[["run_id", "rejected", "records_read", "rate"]].values.tolist() == [
+        ["r1", 2, 20, 0.1],
+        ["r2", 0, 20, 0.0],
+    ]
+    assert rejection_totals(history, "laps", meeting_key=2)["rate"].tolist() == [0.0]
+    assert rejection_totals(history, "stints").empty
+
+
+def test_rejection_totals_reads_files_without_rows_rejected(tmp_path):
+    """Arquivos gravados antes da coluna existir: usa a soma por regra."""
+    old = _history(("r1", 10, 1, ["a:x", "a:x"], 10)).drop(columns="rows_rejected")
+    target = tmp_path / "rejection_history" / "laps" / "season=2023"
+    target.mkdir(parents=True)
+    old.to_parquet(target / "run_id=r1.parquet", index=False)
+
+    history = load_rejection_history(tmp_path)
+
+    assert history["rows_rejected"].isna().all()
+    assert rejection_totals(history, "laps")["rejected"].tolist() == [2]
 
 
 def test_platform_summary_counts_layers_records_and_rejections(populated_lake):
