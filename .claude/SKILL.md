@@ -287,7 +287,9 @@ from f1.domain.ports import LapTimeSource
 from f1.processing.laps import filter_valid_laps
 
 
-def run_lap_times_pipeline(source: LapTimeSource, season: int, round_number: int) -> int:
+def run_lap_times_pipeline(
+    source: LapTimeSource, season: int, round_number: int
+) -> int:
     laps = source.fetch(season, round_number)
     valid_laps = filter_valid_laps(laps)
     return len(valid_laps)
