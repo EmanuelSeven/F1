@@ -44,6 +44,71 @@ def test_points_bar_orders_leader_first_with_team_colours(frames):
     assert fig.layout.yaxis.autorange == "reversed"
 
 
+def _standings(rows: list[tuple[str, float, str | None]]) -> pd.DataFrame:
+    """Tabela mínima do gráfico de pontos: (sigla, pontos, país ISO-2)."""
+    return pd.DataFrame(
+        {
+            "acronym": [r[0] for r in rows],
+            "points": [r[1] for r in rows],
+            "country": [r[2] for r in rows],
+            "name": [r[0] for r in rows],
+            "team": ["T"] * len(rows),
+            "colour": ["#FFFFFF"] * len(rows),
+            "wins": [0] * len(rows),
+            "podiums": [0] * len(rows),
+        }
+    )
+
+
+def test_points_bar_flag_per_driver_on_its_category(frames):
+    standings = driver_standings(
+        frames[Endpoint.SESSION_RESULT],
+        frames[Endpoint.SESSIONS],
+        frames[Endpoint.DRIVERS],
+    )
+    fig = charts.points_bar(standings)
+
+    images = fig.layout.images
+    assert [i.source for i in images] == [
+        "https://flagcdn.com/w40/es.png",  # SAI
+        "https://flagcdn.com/w40/nl.png",  # VER
+    ]
+    assert [i.y for i in images] == [0, 1]  # posição da categoria no eixo Y
+    assert all(i.yref == "y" and i.xanchor == "right" for i in images)
+    assert all(i.x < 0 for i in images)  # antes do início das barras
+    assert fig.layout.yaxis.ticklabelstandoff == charts.FLAG_STANDOFF
+    assert fig.layout.margin.l > charts.FLAG_STANDOFF
+
+
+def test_points_bar_driver_without_country_has_no_flag():
+    fig = charts.points_bar(_standings([("AAA", 10, "br"), ("ZZZ", 5, None)]))
+
+    assert list(fig.data[0].y) == ["AAA", "ZZZ"]  # piloto continua no gráfico
+    assert [(i.source, i.y) for i in fig.layout.images] == [
+        ("https://flagcdn.com/w40/br.png", 0)
+    ]
+
+
+def test_points_bar_without_any_country_keeps_default_axis():
+    fig = charts.points_bar(_standings([("ZZZ", 5, None)]))
+
+    assert fig.layout.images == ()
+    assert fig.layout.yaxis.ticklabelstandoff == 0
+
+
+@pytest.mark.parametrize("show_zero", [False, True])
+def test_points_bar_flags_follow_zero_points_toggle(show_zero):
+    from f1.dashboard.views.season import chart_standings  # noqa: PLC0415
+
+    standings = _standings([("VER", 25, "nl"), ("NOR", 18, "gb"), ("BOR", 0, "br")])
+    rows = chart_standings(standings, show_zero=show_zero)
+    fig = charts.points_bar(rows)
+
+    expected = ["nl", "gb", "br"] if show_zero else ["nl", "gb"]
+    assert [i.source.split("/")[-1][:2] for i in fig.layout.images] == expected
+    assert [i.y for i in fig.layout.images] == list(range(len(expected)))
+
+
 def test_lap_times_chart_one_line_per_driver(frames):
     laps = lap_times(frames[Endpoint.LAPS], frames[Endpoint.DRIVERS], RACE)
     fig = charts.lap_times_chart(laps)

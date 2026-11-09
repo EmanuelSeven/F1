@@ -185,6 +185,21 @@ def test_country_label():
     assert country_label(None) == "—"
 
 
+@pytest.mark.parametrize(
+    ("code", "url"),
+    [
+        ("br", "https://flagcdn.com/w40/br.png"),
+        (" GB ", "https://flagcdn.com/w40/gb.png"),
+        (None, None),
+        ("", None),
+        ("NED", None),  # ISO-3 é convertido antes (f1.processing.nationality)
+        (float("nan"), None),
+    ],
+)
+def test_flag_png_url(code, url):
+    assert flags.flag_png_url(code) == url
+
+
 # --- HTML para cartões e textos ---------------------------------------------
 
 
