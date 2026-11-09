@@ -8,7 +8,12 @@ from streamlit.testing.v1 import AppTest
 
 from f1.config.settings import get_settings
 from f1.dashboard.views import charts
-from f1.dashboard.views.laps import kinds_text, laps_display
+from f1.dashboard.views.laps import (
+    kinds_text,
+    laps_display,
+    laps_subtitle,
+    laps_title,
+)
 from f1.dashboard.views.sidebar import EDITABLE_PAGE, LAPS_PAGE
 from f1.domain.endpoints import Endpoint
 from f1.domain.models import SessionKind
@@ -70,9 +75,9 @@ def test_laps_page_uses_editable_session_filter():
 
 def test_default_shows_latest_grand_prix(app, stub):
     html = _html(app)
-    assert "Fórmula 1 · voltas mais rápidas 2026" in html
+    assert "Fórmula 1 · Top 5 Voltas Mais Rápidas 2026" in html
     assert "Circuito Singapore · Singapore" in html
-    assert "5 voltas mais rápidas em corrida e sprint" in html
+    assert "Rodada 1 · Exibindo as 5 voltas mais rápidas em corrida e sprint" in html
     assert "Mostrando o Grande Prêmio mais recente" in " ".join(
         c.value for c in app.caption
     )
@@ -101,7 +106,9 @@ def test_qualifying_laps_are_loaded_on_demand(app, stub):
     ]
     lap_calls = [c for c in stub.calls if c[0] is Endpoint.LAPS]
     assert {c[1][0].value for c in lap_calls} == {9161, 9165}  # mantém a corrida
-    assert "em corrida e classificação" in _html(app)
+    assert (
+        "Rodada 1 · Exibindo as 5 voltas mais rápidas em corrida e classificação"
+    ) in _html(app)
 
 
 def test_one_lap_per_driver(app):
@@ -167,3 +174,33 @@ def test_fastest_laps_chart_is_a_dot_plot(top):
     low, high = fig.layout.xaxis.range
     assert low < 100.512 and high > 101.456  # eixo não parte do zero
     assert json.loads(fig.to_json())["layout"]["yaxis"]["autorange"] == "reversed"
+
+
+# --- textos dinâmicos do ranking Top 5 ------------------------------------
+
+
+@pytest.mark.parametrize("year", [2023, 2026, 2027])
+def test_title_uses_the_selected_year(year):
+    assert laps_title(year) == f"Fórmula 1 · Top 5 Voltas Mais Rápidas {year}"
+
+
+@pytest.mark.parametrize("round_number", [1, 20, 24])
+def test_subtitle_uses_the_round_of_the_event(round_number):
+    assert laps_subtitle(round_number, (SessionKind.RACE, SessionKind.SPRINT)) == (
+        f"Rodada {round_number} · Exibindo as 5 voltas mais rápidas em corrida e sprint"
+    )
+
+
+def test_subtitle_follows_the_session_filter():
+    assert laps_subtitle(20, (SessionKind.QUALIFYING,)) == (
+        "Rodada 20 · Exibindo as 5 voltas mais rápidas em classificação"
+    )
+
+
+def test_title_follows_the_season_filter(app):
+    app.selectbox(key="filter_season").set_value(2025).run()
+
+    assert not app.exception
+    html = _html(app)
+    assert "Fórmula 1 · Top 5 Voltas Mais Rápidas 2025" in html
+    assert "Ainda não há Grandes Prêmios disputados em 2025" in app.info[0].value

@@ -39,6 +39,19 @@ def kinds_text(kinds: tuple[SessionKind, ...]) -> str:
     return names[0] if len(names) == 1 else ", ".join(names[:-1]) + " e " + names[-1]
 
 
+def laps_title(year: int) -> str:
+    """Título da página: ``"Fórmula 1 · Top 5 Voltas Mais Rápidas 2026"``."""
+    return f"Fórmula 1 · Top {TOP_LAPS} Voltas Mais Rápidas {year}"
+
+
+def laps_subtitle(round_number: int, kinds: tuple[SessionKind, ...]) -> str:
+    """Subcabeçalho: rodada do evento exibido e os tipos de sessão do filtro."""
+    return (
+        f"Rodada {round_number} · Exibindo as {TOP_LAPS} voltas mais rápidas em "
+        f"{kinds_text(kinds)}"
+    )
+
+
 def laps_display(top: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame(
         {
@@ -61,7 +74,7 @@ def render_laps() -> None:
     data_dir = get_settings().data_dir
     filters = current_filters()
     year, filt = filters.year, filters.season
-    title = f"Fórmula 1 · voltas mais rápidas {year}"
+    title = laps_title(year)
     st.markdown(f'<div class="f1-title">{title}</div>', unsafe_allow_html=True)
     if not filt.kinds:
         st.info("Escolha ao menos um tipo de sessão na barra lateral.")
@@ -77,8 +90,7 @@ def render_laps() -> None:
     gp = match.iloc[0]
     section(
         f"Circuito {gp['circuit']} · {gp['gp']}",
-        f"Rodada {int(gp['round'])} · {TOP_LAPS} voltas mais rápidas em "
-        f"{kinds_text(filt.kinds)}",
+        laps_subtitle(int(gp["round"]), filt.kinds),
     )
     if filt.meeting_key is None:
         st.caption(

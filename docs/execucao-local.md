@@ -166,7 +166,10 @@ Mensagens de erro:
 
 ### Voltas
 
-As **5 voltas mais rápidas por circuito**.
+O ranking **Top 5** das voltas mais rápidas por circuito.
+
+- **Título:** "Fórmula 1 · Top 5 Voltas Mais Rápidas {ano}", com o ano do filtro **Temporada**.
+- **Subcabeçalho:** "Rodada {rodada} · Exibindo as 5 voltas mais rápidas em {tipos}", com a rodada do GP exibido e os tipos de sessão do filtro. No padrão, o texto fica "… em corrida e sprint".
 
 - **Circuito:** o do filtro **Grande Prêmio**; com "Todos", o GP mais recente já disputado.
 - **Sessões:** as do filtro **Tipo de sessão** (padrão: corrida e sprint). Marque **Classificação** para ver as voltas de pole, que costumam ser as mais rápidas.
