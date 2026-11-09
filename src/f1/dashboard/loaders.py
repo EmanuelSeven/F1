@@ -14,8 +14,16 @@ import pandas as pd
 from f1.domain.endpoints import DATASET_SPECS, Endpoint, spec_for
 from f1.domain.models import INGESTED_AT, RUN_ID, Partition
 from f1.processing.normalize import normalize
+from f1.storage import rejection_history as history
 from f1.storage.parquet_writer import PART_FILE
-from f1.storage.paths import BRONZE, QUARANTINE, SILVER, layer_path, partition_path
+from f1.storage.paths import (
+    BRONZE,
+    QUARANTINE,
+    REJECTION_HISTORY,
+    SILVER,
+    layer_path,
+    partition_path,
+)
 
 LAYERS: tuple[str, ...] = (BRONZE, SILVER, QUARANTINE)
 SEASON_ENDPOINTS: tuple[Endpoint, ...] = (
@@ -204,6 +212,67 @@ def layers_table(summary: PlatformSummary) -> pd.DataFrame:
             for item in summary.layers
         ]
     )
+
+
+def load_rejection_history(data_dir: Path) -> pd.DataFrame:
+    """Todas as linhas do histórico de rejeições (vazio, com colunas tipadas)."""
+    base = layer_path(data_dir, REJECTION_HISTORY)
+    frames = [pd.read_parquet(f) for f in iter_data_files(base, "*.parquet")]
+    frames = [f for f in frames if not f.empty]
+    if not frames:
+        return history.empty_history()
+    return pd.concat(frames, ignore_index=True).astype(history.COLUMNS)
+
+
+TREND_COLUMNS = [
+    history.RUN_ID,
+    history.RECORDED_AT,
+    history.RULE,
+    history.REJECTED,
+    history.RECORDS_READ,
+    "rate",
+    history.ABORTED,
+]
+
+
+def rejection_trend(
+    rows: pd.DataFrame, dataset: str, meeting_key: int | None = None
+) -> pd.DataFrame:
+    """Taxa de rejeição por carga e regra de um dataset, em ordem cronológica.
+
+    Cada carga soma as partições que gravou (ou só ``meeting_key``, se dado).
+    Uma regra sem linhas numa carga que rodou conta como zero rejeições nela.
+    """
+    rows = rows[rows[history.DATASET] == dataset]
+    if meeting_key is not None:
+        rows = rows[rows[history.MEETING_KEY] == meeting_key]
+    if rows.empty:
+        return pd.DataFrame(columns=TREND_COLUMNS)
+    partition = [history.RUN_ID, history.SEASON, history.MEETING_KEY]
+    runs = (
+        rows.drop_duplicates(partition)
+        .groupby(history.RUN_ID, as_index=False)
+        .agg(
+            recorded_at=(history.RECORDED_AT, "min"),
+            records_read=(history.RECORDS_READ, "sum"),
+            aborted=(history.ABORTED, "any"),
+        )
+    )
+    violated = rows.dropna(subset=[history.RULE])
+    rules = sorted(violated[history.RULE].unique())
+    if not rules:
+        return pd.DataFrame(columns=TREND_COLUMNS)
+    counts = violated.groupby([history.RUN_ID, history.RULE], as_index=False)[
+        history.REJECTED
+    ].sum()
+    grid = runs.merge(pd.DataFrame({history.RULE: rules}), how="cross")
+    trend = grid.merge(counts, on=[history.RUN_ID, history.RULE], how="left")
+    trend[history.REJECTED] = trend[history.REJECTED].fillna(0).astype(int)
+    read = trend[history.RECORDS_READ].astype(float)
+    trend["rate"] = (trend[history.REJECTED] / read.where(read > 0)).fillna(0.0)
+    return trend.sort_values([history.RECORDED_AT, history.RULE], ignore_index=True)[
+        TREND_COLUMNS
+    ]
 
 
 @dataclass(frozen=True)

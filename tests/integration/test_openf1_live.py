@@ -11,6 +11,7 @@ from f1.pipelines.meeting import fetch_meeting, run_meeting
 from f1.storage.bronze import JsonRawStore
 from f1.storage.parquet_writer import ParquetDatasetStore
 from f1.storage.quarantine import QuarantineStore
+from f1.storage.rejection_history import RejectionHistoryStore
 
 SINGAPORE_2023 = 1219
 
@@ -36,6 +37,7 @@ def test_live_meeting_end_to_end(client, tmp_path):
         raw=JsonRawStore(tmp_path / "bronze"),
         silver=ParquetDatasetStore(tmp_path / "silver"),
         quarantine=QuarantineStore(tmp_path / "quarantine"),
+        rejections=RejectionHistoryStore(tmp_path / "rejection_history"),
     )
     ctx = RunContext(run_id="integration", max_rejection_rate=0.05)
 

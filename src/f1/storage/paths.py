@@ -7,10 +7,11 @@ from f1.domain.models import Partition
 BRONZE = "bronze"
 SILVER = "silver"
 QUARANTINE = "quarantine"
+REJECTION_HISTORY = "rejection_history"
 
 
 def layer_path(data_dir: Path, layer: str) -> Path:
-    """Diretório raiz de uma camada (``bronze``, ``silver``, ``quarantine``)."""
+    """Diretório raiz de uma camada (``bronze``, ``silver``, ``quarantine``...)."""
     return data_dir / layer
 
 

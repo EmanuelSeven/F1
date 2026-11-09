@@ -7,6 +7,7 @@ O projeto `f1` extrai dados históricos (2023 em diante) da [OpenF1 API](https:/
 | `data/bronze/` | JSON | Resposta bruta da API, por endpoint e partição |
 | `data/silver/` | Parquet (`zstd`) | Dados tipados, validados e com colunas de linhagem |
 | `data/quarantine/` | Parquet | Registros rejeitados pela validação, com o motivo |
+| `data/rejection_history/` | Parquet | Contagem de rejeições por carga e regra (só acréscimos) |
 
 ## Escopo da v0.1
 

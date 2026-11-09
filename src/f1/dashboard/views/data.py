@@ -29,6 +29,7 @@ from f1.dashboard.loaders import (
     lap_session_keys,
     load_platform_summary,
     load_race_details,
+    load_rejection_history,
     load_season_data,
     read_dataset,
     season_is_loaded,
@@ -79,11 +80,17 @@ def lake_summary(data_dir: Path) -> PlatformSummary:
     return load_platform_summary(data_dir)
 
 
+@st.cache_data(ttl=SUMMARY_TTL_SECONDS, show_spinner=False)
+def rejection_history(data_dir: Path) -> pd.DataFrame:
+    return load_rejection_history(data_dir)
+
+
 def clear_lake_caches() -> None:
     """Invalida as leituras do lake (após uma carga)."""
     season_data.clear()
     race_details.clear()
     lake_summary.clear()
+    rejection_history.clear()
 
 
 def kinds_key(kinds: Iterable[SessionKind]) -> tuple[str, ...]:

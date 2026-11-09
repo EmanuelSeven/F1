@@ -169,6 +169,50 @@ def weather_chart(weather: pd.DataFrame) -> go.Figure:
     return fig
 
 
+def rejection_trend_chart(trend: pd.DataFrame) -> go.Figure:
+    """Taxa de rejeição por carga, uma linha por regra.
+
+    Cargas abortadas (taxa acima do limite) aparecem com marcador ``x``.
+    """
+    fig = go.Figure()
+    for rule, rows in trend.groupby("rule", sort=True):
+        symbols = ["x" if a else "circle" for a in rows["aborted"]]
+        fig.add_trace(
+            go.Scatter(
+                x=rows["recorded_at"],
+                y=rows["rate"],
+                mode="lines+markers",
+                name=str(rule),
+                marker={"symbol": symbols, "size": 8},
+                line={"width": 2},
+                customdata=rows[["run_id", "rejected", "records_read"]]
+                .assign(
+                    status=["abortada" if a else "publicada" for a in rows["aborted"]]
+                )
+                .to_numpy(),
+                hovertemplate=(
+                    f"<b>{rule}</b><br>"
+                    "%{y:.1%} (%{customdata[1]} de %{customdata[2]} registros)<br>"
+                    "Carga %{customdata[3]} · run_id %{customdata[0]}<br>"
+                    "%{x|%d/%m/%Y %H:%M} UTC<extra></extra>"
+                ),
+            )
+        )
+    fig.update_layout(
+        **base_layout(
+            360,
+            xaxis={"title": "Carga (UTC)"},
+            yaxis={
+                "title": "Taxa de rejeição",
+                "tickformat": ".0%",
+                "rangemode": "tozero",
+            },
+            hovermode="closest",
+        )
+    )
+    return fig
+
+
 def _gap_text(gap: float) -> str:
     """``0.39`` → ``"+0,390"`` (diferença para a volta mais rápida)."""
     return f"+{gap:.3f}".replace(".", ",")
