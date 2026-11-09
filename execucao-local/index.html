@@ -1344,6 +1344,7 @@
 <li><strong>Métricas gerais:</strong> arquivos na bronze, registros processados (silver), registros rejeitados (quarentena), último <code>run_id</code> e data/hora da última execução (UTC).</li>
 <li><strong>Estado das camadas:</strong> para bronze, silver e quarentena, se existe, a quantidade de arquivos e datasets e o tamanho.</li>
 <li><strong>Datasets silver:</strong> partições, registros, rejeitados e última execução de cada dataset.</li>
+<li><strong>Histórico de rejeições:</strong> taxa de rejeição de cada regra ao longo das cargas, com filtro por dataset e por meeting (para separar reprocessamento de partição nova). Cargas abortadas aparecem com <code>x</code>.</li>
 </ul>
 <p>Os números ficam em cache por 60 s; o botão <strong>Recarregar dados</strong> força uma nova leitura.</p>
 <div class="admonition note">

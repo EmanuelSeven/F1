@@ -965,6 +965,7 @@
 </tbody>
 </table>
 <p>A quarentena (<code>data/quarantine/&lt;dataset&gt;/...</code>) tem as mesmas colunas e mais <code>_reject_reason</code> (<code>coluna:regra</code> separados por <code>;</code>).</p>
+<p>O histórico de rejeições (<code>data/rejection_history/&lt;dataset&gt;/season=Y[/meeting_key=N]/run_id=&lt;id&gt;.parquet</code>) guarda, por carga, uma linha por regra violada: <code>run_id</code>, <code>recorded_at</code>, <code>dataset</code>, <code>season</code>, <code>meeting_key</code>, <code>rule</code>, <code>rejected</code>, <code>records_read</code> e <code>aborted</code>. Uma carga sem rejeições grava uma linha com <code>rule</code> nulo e <code>rejected = 0</code>.</p>
 <p>Formato: Parquet <code>zstd</code>, um arquivo <code>part-00000.parquet</code> por partição.</p>
 <h2 id="meetings"><code>meetings</code><a class="headerlink" href="#meetings" title="Permanent link">&para;</a></h2>
 <ul>

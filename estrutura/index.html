@@ -802,23 +802,24 @@
 <a id="__codelineno-0-38" name="__codelineno-0-38" href="#__codelineno-0-38"></a>│   ├── atomic.py               # Troca atômica segura com gravações concorrentes
 <a id="__codelineno-0-39" name="__codelineno-0-39" href="#__codelineno-0-39"></a>│   ├── bronze.py               # JSON bruto com escrita atômica
 <a id="__codelineno-0-40" name="__codelineno-0-40" href="#__codelineno-0-40"></a>│   ├── parquet_writer.py       # Overwrite atômico de partição
-<a id="__codelineno-0-41" name="__codelineno-0-41" href="#__codelineno-0-41"></a>│   └── quarantine.py           # Rejeitados (limpa a partição se vazio)
-<a id="__codelineno-0-42" name="__codelineno-0-42" href="#__codelineno-0-42"></a>├── pipelines/
-<a id="__codelineno-0-43" name="__codelineno-0-43" href="#__codelineno-0-43"></a>│   ├── common.py               # normaliza → valida → silver/quarentena
-<a id="__codelineno-0-44" name="__codelineno-0-44" href="#__codelineno-0-44"></a>│   ├── calendar.py             # meetings + sessions de um ano
-<a id="__codelineno-0-45" name="__codelineno-0-45" href="#__codelineno-0-45"></a>│   ├── meeting.py              # 6 datasets de sessão de um meeting
-<a id="__codelineno-0-46" name="__codelineno-0-46" href="#__codelineno-0-46"></a>│   ├── results.py              # resultados em lote + grade de largada por GP
-<a id="__codelineno-0-47" name="__codelineno-0-47" href="#__codelineno-0-47"></a>│   ├── season.py               # calendário + meetings encerrados
-<a id="__codelineno-0-48" name="__codelineno-0-48" href="#__codelineno-0-48"></a>│   └── factory.py              # build_stores (CLI e dashboard)
-<a id="__codelineno-0-49" name="__codelineno-0-49" href="#__codelineno-0-49"></a>└── utils/
-<a id="__codelineno-0-50" name="__codelineno-0-50" href="#__codelineno-0-50"></a>    ├── logging.py              # JsonFormatter + configure_logging
-<a id="__codelineno-0-51" name="__codelineno-0-51" href="#__codelineno-0-51"></a>    ├── metrics.py              # PipelineMetrics + track_pipeline
-<a id="__codelineno-0-52" name="__codelineno-0-52" href="#__codelineno-0-52"></a>    └── dates.py                # ISO 8601 → UTC
-<a id="__codelineno-0-53" name="__codelineno-0-53" href="#__codelineno-0-53"></a>tests/
-<a id="__codelineno-0-54" name="__codelineno-0-54" href="#__codelineno-0-54"></a>├── conftest.py                 # load_fixture, FakeOpenF1Source
-<a id="__codelineno-0-55" name="__codelineno-0-55" href="#__codelineno-0-55"></a>├── fixtures/openf1/*.json      # Amostras pequenas por endpoint
-<a id="__codelineno-0-56" name="__codelineno-0-56" href="#__codelineno-0-56"></a>├── unit/                       # Espelho de src/f1, sem rede
-<a id="__codelineno-0-57" name="__codelineno-0-57" href="#__codelineno-0-57"></a>└── integration/                # @pytest.mark.integration (API real)
+<a id="__codelineno-0-41" name="__codelineno-0-41" href="#__codelineno-0-41"></a>│   ├── quarantine.py           # Rejeitados (limpa a partição se vazio)
+<a id="__codelineno-0-42" name="__codelineno-0-42" href="#__codelineno-0-42"></a>│   └── rejection_history.py    # Contagem de rejeições por carga (só acréscimos)
+<a id="__codelineno-0-43" name="__codelineno-0-43" href="#__codelineno-0-43"></a>├── pipelines/
+<a id="__codelineno-0-44" name="__codelineno-0-44" href="#__codelineno-0-44"></a>│   ├── common.py               # normaliza → valida → silver/quarentena
+<a id="__codelineno-0-45" name="__codelineno-0-45" href="#__codelineno-0-45"></a>│   ├── calendar.py             # meetings + sessions de um ano
+<a id="__codelineno-0-46" name="__codelineno-0-46" href="#__codelineno-0-46"></a>│   ├── meeting.py              # 6 datasets de sessão de um meeting
+<a id="__codelineno-0-47" name="__codelineno-0-47" href="#__codelineno-0-47"></a>│   ├── results.py              # resultados em lote + grade de largada por GP
+<a id="__codelineno-0-48" name="__codelineno-0-48" href="#__codelineno-0-48"></a>│   ├── season.py               # calendário + meetings encerrados
+<a id="__codelineno-0-49" name="__codelineno-0-49" href="#__codelineno-0-49"></a>│   └── factory.py              # build_stores (CLI e dashboard)
+<a id="__codelineno-0-50" name="__codelineno-0-50" href="#__codelineno-0-50"></a>└── utils/
+<a id="__codelineno-0-51" name="__codelineno-0-51" href="#__codelineno-0-51"></a>    ├── logging.py              # JsonFormatter + configure_logging
+<a id="__codelineno-0-52" name="__codelineno-0-52" href="#__codelineno-0-52"></a>    ├── metrics.py              # PipelineMetrics + track_pipeline
+<a id="__codelineno-0-53" name="__codelineno-0-53" href="#__codelineno-0-53"></a>    └── dates.py                # ISO 8601 → UTC
+<a id="__codelineno-0-54" name="__codelineno-0-54" href="#__codelineno-0-54"></a>tests/
+<a id="__codelineno-0-55" name="__codelineno-0-55" href="#__codelineno-0-55"></a>├── conftest.py                 # load_fixture, FakeOpenF1Source
+<a id="__codelineno-0-56" name="__codelineno-0-56" href="#__codelineno-0-56"></a>├── fixtures/openf1/*.json      # Amostras pequenas por endpoint
+<a id="__codelineno-0-57" name="__codelineno-0-57" href="#__codelineno-0-57"></a>├── unit/                       # Espelho de src/f1, sem rede
+<a id="__codelineno-0-58" name="__codelineno-0-58" href="#__codelineno-0-58"></a>└── integration/                # @pytest.mark.integration (API real)
 </code></pre></div>
 <h2 id="como-adicionar-um-dataset">Como adicionar um dataset<a class="headerlink" href="#como-adicionar-um-dataset" title="Permanent link">&para;</a></h2>
 <ol>
