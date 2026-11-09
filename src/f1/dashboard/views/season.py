@@ -173,7 +173,7 @@ def flags_cache_dir() -> Path:
 
 def _header(year: int, summary: str | None = None) -> None:
     """Banner (hero) com título e frase-resumo; sem a arte, cabeçalho normal."""
-    title = f"Fórmula 1 · temporada {year}"
+    title = f"Fórmula 1 · Temporada {year}"
     st.markdown(hero_html(title, summary, hero_background()), unsafe_allow_html=True)
 
 

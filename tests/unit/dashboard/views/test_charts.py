@@ -147,10 +147,10 @@ def test_hero_css_keeps_art_on_the_right():
 def test_hero_html_with_and_without_background():
     from f1.dashboard.views.theme import hero_html  # noqa: PLC0415
 
-    banner = hero_html("Fórmula 1 · temporada 2024", "<strong>X</strong>", "data:x")
+    banner = hero_html("Fórmula 1 · Temporada 2024", "<strong>X</strong>", "data:x")
     assert banner.startswith('<div class="f1-hero"')
     assert "url('data:x')" in banner
-    assert '<div class="f1-title">Fórmula 1 · temporada 2024</div>' in banner
+    assert '<div class="f1-title">Fórmula 1 · Temporada 2024</div>' in banner
     assert '<div class="f1-summary"><strong>X</strong></div>' in banner
 
     plain = hero_html("Título <b>", None, None)

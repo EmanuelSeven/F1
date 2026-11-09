@@ -72,7 +72,7 @@ def test_season_page_is_default_and_loads_2024(data_env, tmp_path, client, openf
 
     assert not app.exception
     html = _html(app)
-    assert "Fórmula 1 · temporada 2024" in html
+    assert "Fórmula 1 · Temporada 2024" in html
     assert "<strong>Carlos Sainz</strong> soma <strong>25</strong> pontos" in html
     assert html.count('class="kpi-card"') == 4
     for caption in (
@@ -105,7 +105,7 @@ def test_selecting_another_season_loads_it(data_env, tmp_path, client, openf1_da
     app.selectbox(key="filter_season").set_value(2023).run()
 
     assert not app.exception
-    assert "Fórmula 1 · temporada 2023" in _html(app)
+    assert "Fórmula 1 · Temporada 2023" in _html(app)
     assert app.dataframe[0].value["GP"].tolist() == ["Singapore"]
 
 

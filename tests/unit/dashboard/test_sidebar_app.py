@@ -67,7 +67,7 @@ def test_sidebar_has_brand_filters_and_footer(app):
 
 def test_season_selector_moved_out_of_the_page(app):
     assert len(app.main.selectbox) == 0
-    assert "Fórmula 1 · temporada 2024" in _html(app)
+    assert "Fórmula 1 · Temporada 2024" in _html(app)
     assert app.selectbox(key="filter_season").value == 2024
     kinds = app.multiselect(key="filter_kinds_locked")
     assert kinds.disabled
@@ -83,7 +83,7 @@ def test_year_is_kept_in_query_params(monkeypatch, tmp_path, stub, openf1_data):
     test.run()
 
     assert test.selectbox(key="filter_season").value == 2023
-    assert "Fórmula 1 · temporada 2023" in _html(test)
+    assert "Fórmula 1 · Temporada 2023" in _html(test)
 
     test.selectbox(key="filter_season").set_value(2024).run()
     assert test.query_params["ano"] == "2024"
@@ -417,7 +417,7 @@ def test_season_header_is_a_hero_banner(monkeypatch, tmp_path, openf1_data):
     app = _season_app(monkeypatch, tmp_path, as_season(openf1_data, 2024))
     hero = next(m.value for m in app.markdown if 'class="f1-hero"' in m.value)
     assert "background-image:" in hero and "data:image/svg+xml;base64," in hero
-    assert "Fórmula 1 · temporada 2024" in hero
+    assert "Fórmula 1 · Temporada 2024" in hero
     assert "<strong>Carlos Sainz</strong> soma" in hero  # frase-resumo no banner
 
 
@@ -427,5 +427,5 @@ def test_season_header_without_hero_file(monkeypatch, tmp_path, openf1_data):
 
     html = _html(app)
     assert 'class="f1-hero"' not in html
-    assert '<div class="f1-title">Fórmula 1 · temporada 2024</div>' in html
+    assert '<div class="f1-title">Fórmula 1 · Temporada 2024</div>' in html
     assert "<strong>Carlos Sainz</strong> soma" in html
