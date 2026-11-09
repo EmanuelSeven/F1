@@ -29,7 +29,7 @@ Copie `.env.example` para `.env` e ajuste se precisar. Todas usam o prefixo `F1_
 | `F1_REQUEST_INTERVAL_SECONDS` | `0.5` | Intervalo mínimo entre requisições |
 | `F1_MAX_REJECTION_RATE` | `0.05` | Taxa máxima de rejeição antes de falhar |
 | `F1_SUPABASE_URL` | vazio | URL do projeto Supabase do contador de acessos (ex.: `https://xyz.supabase.co`) |
-| `F1_SUPABASE_KEY` | vazio | Chave `anon` (pública) do projeto Supabase |
+| `F1_SUPABASE_KEY` | vazio | Publishable key do projeto Supabase (`sb_publishable_...`) |
 
 Sem `F1_SUPABASE_URL` ou `F1_SUPABASE_KEY`, o contador de acessos do dashboard fica desligado (veja [Contador de acessos](#contador-de-acessos)).
 
@@ -120,7 +120,7 @@ Cada página mostra só os filtros que usa. Na **Última corrida**, o seletor de
 
 ### Contador de acessos
 
-O total de acessos fica no [Supabase](https://supabase.com) (Postgres), e não num arquivo local, porque o Streamlit Community Cloud apaga o disco a cada reinício. O dashboard chama a função `increment_page_views` pela API REST (`POST {F1_SUPABASE_URL}/rest/v1/rpc/increment_page_views`), com timeout de 3 s (`f1.dashboard.visits`).
+O total de acessos fica no [Supabase](https://supabase.com) (Postgres), e não num arquivo local, porque o Streamlit Community Cloud apaga o disco a cada reinício. O dashboard chama a função `increment_page_views` pela API REST (`POST {F1_SUPABASE_URL}/rest/v1/rpc/increment_page_views`), enviando só o header `apikey` e com timeout de 3 s (`f1.dashboard.visits`). A publishable key (`sb_publishable_...`) não é um JWT, por isso não vai em `Authorization: Bearer`.
 
 - Conta uma vez por sessão do navegador: o total fica em `st.session_state["page_views"]`, e trocar de página, mexer nos filtros ou qualquer rerun não conta de novo. Recarregar a aba (F5) abre uma nova sessão e conta.
 - Qualquer falha (rede, timeout, HTTP, resposta inválida) gera um `logger.warning` com o evento `page_views_failed`, o total some do rodapé e o dashboard segue normal. A falha também fica guardada na sessão, para não repetir a requisição a cada rerun.
@@ -150,14 +150,14 @@ Para ligar:
     grant execute on function public.increment_page_views() to anon;
     ```
 
-    A tabela tem uma única linha (`id = 1`). Com RLS ligado e sem políticas, a chave `anon` não lê nem altera a tabela diretamente: ela só pode executar a função, que roda com os privilégios do dono (`security definer`) e apenas soma 1.
+    A tabela tem uma única linha (`id = 1`). A publishable key entra no banco com o papel `anon`. Com RLS ligado e sem políticas, esse papel não lê nem altera a tabela diretamente: só pode executar a função, que roda com os privilégios do dono (`security definer`) e apenas soma 1.
 
-2. Em **Project Settings → API**, copie a URL do projeto e a chave `anon` (pública). Não use a chave `service_role`.
+2. Em **Project Settings → API Keys**, copie a **publishable key** (`sb_publishable_...`). A URL do projeto (`https://<id>.supabase.co`) fica em **Project Settings → Data API**. Não use a secret key (`sb_secret_...`) nem a `service_role`.
 3. Localmente, preencha `F1_SUPABASE_URL` e `F1_SUPABASE_KEY` no `.env`. No Streamlit Community Cloud, adicione as duas em **Settings → Secrets**, no nível raiz (o Streamlit expõe as chaves da raiz também como variáveis de ambiente):
 
     ```toml
     F1_SUPABASE_URL = "https://xyz.supabase.co"
-    F1_SUPABASE_KEY = "<chave anon>"
+    F1_SUPABASE_KEY = "sb_publishable_..."
     ```
 
 Os testes desligam o contador (`F1_SUPABASE_*` vazios), mesmo que o `.env` local as tenha.
