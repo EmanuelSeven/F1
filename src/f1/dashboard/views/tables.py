@@ -5,7 +5,7 @@ from collections.abc import Iterable, Mapping, Sequence
 import pandas as pd
 import streamlit as st
 
-from f1.dashboard.views.driver_badge import flag_country_image
+from f1.dashboard.views.driver_badge import EMPTY_CELL, flag_country_image
 
 ROW_HEIGHT = 35
 SQUARE = "■"
@@ -75,9 +75,16 @@ def render_table(  # noqa: PLR0913 - opções de exibição explícitas
     return [int(r) for r in getattr(selection, "rows", [])]
 
 
-def nationality_cells(countries: Iterable[object]) -> list[str | None]:
-    """Células da coluna "Nacionalidade" (bandeira embutida + país)."""
-    return [flag_country_image(c if isinstance(c, str) else None) for c in countries]
+def nationality_cells(countries: Iterable[object]) -> list[str]:
+    """Células da coluna "Nacionalidade" (bandeira embutida + país).
+
+    Nacionalidade desconhecida vira uma imagem transparente: a célula fica
+    vazia (o Streamlit escreveria "None" para um valor nulo).
+    """
+    return [
+        flag_country_image(c if isinstance(c, str) else None) or EMPTY_CELL
+        for c in countries
+    ]
 
 
 def _column_config(

@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 import pandas as pd
 import pytest
 
+from f1.dashboard.views.driver_badge import EMPTY_CELL
 from f1.dashboard.views.formatting import (
     change_style,
     events_noun,
@@ -218,7 +219,7 @@ def test_winners_display_adds_session_column_when_needed():
     ]
     cells = plain["Nacionalidade"].tolist()
     assert cells[0].startswith("data:image/svg+xml;base64,")  # driver_badge
-    assert cells[1] is None  # sem nacionalidade conhecida
+    assert cells[1] == EMPTY_CELL  # sem nacionalidade: célula vazia, nunca None
     by_session = winners_display(_winners(), with_session=True)
     assert by_session["Sessão"].tolist() == ["Sprint", "Classificação"]
     assert by_session["Equipe"].tolist() == ["■ Red Bull Racing", "■ Ferrari"]

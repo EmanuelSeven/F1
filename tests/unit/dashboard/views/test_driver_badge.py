@@ -167,7 +167,7 @@ def test_nationality_of(driver, expected):
 
 
 @pytest.mark.parametrize(
-    "driver", [{"acronym": "CAM"}, {}, {"country": "gbr"}, {"country": float("nan")}]
+    "driver", [{"acronym": "ZZZ"}, {}, {"country": "gbr"}, {"country": float("nan")}]
 )
 def test_nationality_of_unknown_is_none(driver):
     assert nationality_of(driver) is None
@@ -214,7 +214,7 @@ def test_driver_html(tmp_path):
     offline = driver_html(driver, tmp_path / "x", lambda _code: None)
     assert offline == "Lando Norris"  # sem bandeira, sem quebrar
 
-    unknown = driver_html({"name": "A <b>&</b>", "acronym": "CAM"}, tmp_path)
+    unknown = driver_html({"name": "A <b>&</b>", "acronym": "ZZZ"}, tmp_path)
     assert unknown == "A &lt;b&gt;&amp;&lt;/b&gt;"  # nome escapado, sem bandeira
 
 
@@ -223,3 +223,18 @@ def test_flag_country_image_uses_default_cache_dir(monkeypatch, tmp_path):
     uri = flag_country_image("gb", download=lambda _code: FLAG)
     assert "<image" in _decode(uri)
     assert (tmp_path / "gb.svg").is_file()
+
+
+# --- nacionalidade desconhecida nas tabelas -------------------------------
+
+
+def test_unknown_nationality_cell_is_empty_not_none():
+    from f1.dashboard.views.driver_badge import EMPTY_CELL  # noqa: PLC0415
+    from f1.dashboard.views.tables import nationality_cells  # noqa: PLC0415
+
+    cells = nationality_cells([None, float("nan"), "", "xx-invalid"])
+    assert cells[:3] == [EMPTY_CELL] * 3
+    assert all(c is not None and c != "None" for c in cells)
+    blank = _parse(_decode(EMPTY_CELL))
+    assert blank.find(f"{SVG_NS}text") is None  # nada desenhado
+    assert blank.find(f"{SVG_NS}image") is None

@@ -166,6 +166,12 @@ Mensagens de erro:
 
 As imagens são SVG geradas pelo painel, porque o Windows não exibe emoji de bandeira.
 
+**Piloto sem nacionalidade conhecida.** A OpenF1 envia `country_code` vazio a partir de 2026, então a nacionalidade vem do mapeamento por sigla em `src/f1/processing/data/driver_nationalities.json`. Hoje ele cobre todos os pilotos que aparecem em 2026, inclusive reservas e estreantes de treino livre. Quando surgir uma sigla nova:
+
+- a célula *Nacionalidade* fica vazia (nunca "None");
+- o log registra `nacionalidade desconhecida: {sigla} {nome}`, uma vez por piloto;
+- para corrigir, basta incluir a sigla no JSON com o código ISO de 2 letras (ex.: `"CAM": "br"`).
+
 - **País:** vem de `drivers.country_code` ou, se vier vazio, do mapeamento por sigla em `src/f1/processing/data/driver_nationalities.json`.
 - **Nome:** traduzido com Babel (`pt_BR`). Para trocar um nome, edite `COUNTRY_NAME_OVERRIDES` em `src/f1/dashboard/views/flags.py` (ex.: `{"NL": "Holanda"}`).
 - **Bandeira:** baixada de `flagcdn.com` uma vez e guardada em `F1_DATA_DIR/cache/flags`.

@@ -10,10 +10,13 @@ Fonte, em ordem:
 """
 
 import json
+import logging
 from collections.abc import Mapping
 from functools import lru_cache
 from importlib.resources import files
 from types import MappingProxyType
+
+logger = logging.getLogger(__name__)
 
 NATIONALITIES_FILE = "driver_nationalities.json"
 
@@ -25,6 +28,7 @@ COUNTRY_ISO2: Mapping[str, str] = MappingProxyType(
         "AUS": "au",
         "AUT": "at",
         "BEL": "be",
+        "BGR": "bg", "BUL": "bg",
         "BRA": "br",
         "CAN": "ca",
         "CHE": "ch", "SUI": "ch",
@@ -90,3 +94,22 @@ def nationality(country_code: object, acronym: object) -> str | None:
     if isinstance(acronym, str):
         return acronym_nationalities().get(acronym.strip().upper())
     return None
+
+
+_reported: set[tuple[str, str]] = set()
+
+
+def report_unknown(acronym: object, name: object) -> None:
+    """Avisa no log, uma vez por piloto, que falta a nacionalidade.
+
+    Sinal para incluir o piloto em ``data/driver_nationalities.json``.
+    """
+    key = (str(acronym or "—"), str(name or "—"))
+    if key in _reported:
+        return
+    _reported.add(key)
+    logger.warning(
+        "nacionalidade desconhecida: %s %s",
+        *key,
+        extra={"driver_acronym": key[0], "driver_name": key[1]},
+    )

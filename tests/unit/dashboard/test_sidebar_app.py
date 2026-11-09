@@ -402,12 +402,28 @@ def test_nationality_falls_back_to_acronym_or_stays_empty(
     for driver in data[Endpoint.DRIVERS]:  # como em 2026: country_code vazio
         driver["country_code"] = None
         if driver["name_acronym"] == "VER":
-            driver["name_acronym"] = "CAM"  # sigla sem nacionalidade conhecida
+            driver["name_acronym"] = "ZZZ"  # sigla sem nacionalidade conhecida
     app = _season_app(monkeypatch, tmp_path, data)
 
     cell = app.dataframe[0].value["Nacionalidade"].iloc[0]
     assert ">Espanha</text>" in _nationality_text(cell)  # SAI → es pela sigla
-    assert "CAM" in _chart_labels(app)  # sem nacionalidade, mas sem quebrar
+    assert "ZZZ" in _chart_labels(app)  # sem nacionalidade, mas sem quebrar
+
+
+def test_unknown_winner_has_an_empty_nationality_cell(
+    monkeypatch, tmp_path, openf1_data
+):
+    from f1.dashboard.views.driver_badge import EMPTY_CELL  # noqa: PLC0415
+
+    data = as_season(openf1_data, 2026)
+    for driver in data[Endpoint.DRIVERS]:
+        driver["country_code"] = None
+        if driver["name_acronym"] == "SAI":  # o vencedor vira desconhecido
+            driver["name_acronym"] = "ZZZ"
+    app = _season_app(monkeypatch, tmp_path, data)
+
+    cell = app.dataframe[0].value["Nacionalidade"].iloc[0]
+    assert cell == EMPTY_CELL  # célula vazia, nunca "None"
 
 
 def test_season_header_is_a_hero_banner(monkeypatch, tmp_path, openf1_data):

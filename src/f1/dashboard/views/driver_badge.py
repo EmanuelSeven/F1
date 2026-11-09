@@ -54,6 +54,12 @@ type DriverLike = Mapping[str, object] | pd.Series
 
 _memory: dict[str, str] = {}
 
+# Célula de imagem vazia (transparente), para nacionalidade desconhecida.
+EMPTY_CELL = "data:image/svg+xml;base64," + base64.b64encode(
+    f'<svg xmlns="http://www.w3.org/2000/svg" width="{IMAGE_WIDTH}" '
+    f'height="{IMAGE_HEIGHT}"/>'.encode()
+).decode("ascii")
+
 
 def country_name(code: str, overrides: Mapping[str, str] | None = None) -> str:
     """Nome do país em português do Brasil (``"gb"`` → ``"Reino Unido"``).

@@ -22,7 +22,7 @@ from f1.domain.models import (
     classify_session,
     primary_kinds,
 )
-from f1.processing.nationality import nationality
+from f1.processing.nationality import nationality, report_unknown
 
 RACE = SessionKind.RACE.value
 SPRINT = SessionKind.SPRINT.value
@@ -185,6 +185,11 @@ def driver_info(drivers: pd.DataFrame) -> pd.DataFrame:
             ],
         }
     )
+    for acronym, name, country in zip(
+        out["acronym"], out["name"], out["country"], strict=True
+    ):
+        if country is None:
+            report_unknown(acronym, name)
     return out.drop_duplicates(["session_key", "driver_number"], keep="last")
 
 
