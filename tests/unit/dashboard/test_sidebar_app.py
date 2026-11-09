@@ -63,7 +63,24 @@ def test_sidebar_has_brand_filters_and_footer(app):
     footer = app.sidebar.caption[-1].value
     assert footer.startswith("Dados: OpenF1 · última atualização ")
     assert not footer.endswith("—")  # a carga inicial já registrou a ingestão
-    assert footer.endswith("(Brasília)")
+    assert footer.endswith("(Brasília)")  # contador desligado: sem acessos
+
+
+def _footer_script() -> None:
+    from f1.config.settings import get_settings  # noqa: PLC0415
+    from f1.dashboard.views.sidebar import render_sidebar_footer  # noqa: PLC0415
+
+    render_sidebar_footer(get_settings().data_dir, 1234)
+
+
+def test_footer_shows_page_views(monkeypatch, tmp_path):
+    monkeypatch.setenv("F1_DATA_DIR", str(tmp_path / "lake"))
+    get_settings.cache_clear()
+    test = AppTest.from_function(_footer_script, default_timeout=TIMEOUT)
+    test.run()
+    get_settings.cache_clear()
+    assert not test.exception
+    assert test.sidebar.caption[-1].value.endswith(" · 👁️ 1.234 acessos")
 
 
 def test_season_selector_moved_out_of_the_page(app):
