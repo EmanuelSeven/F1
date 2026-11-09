@@ -11,6 +11,12 @@ COMPOUNDS = ("SOFT", "MEDIUM", "HARD", "INTERMEDIATE", "WET", "UNKNOWN", "TEST_U
 HEX_COLOUR = r"^[0-9A-Fa-f]{6}$"
 DATETIME = "datetime64[ns, UTC]"
 MAX_PIT_LANE_SECONDS = 4 * 60 * 60  # 14.400 s
+# Volta durante bandeira vermelha inclui o tempo parado (ex.: México 2026,
+# ~30 min): mesmo teto de 4 h do pit lane.
+MAX_LAP_SECONDS = 4 * 60 * 60
+# Nos testes de pré-temporada um carro passa de 150 voltas por dia; o teto só
+# barra valores absurdos (corridas têm no máximo ~80 voltas).
+MAX_LAP_NUMBER = 300
 
 
 def _int(*checks: pa.Check) -> pa.Column:
@@ -141,9 +147,11 @@ SCHEMAS: Mapping[Endpoint, pa.DataFrameSchema] = MappingProxyType(
             Endpoint.LAPS,
             {
                 **_session_keys(),
-                "lap_number": _int(_range(1, 100)),
+                "lap_number": _int(_range(1, MAX_LAP_NUMBER)),
                 "date_start": _opt(DATETIME),
-                "lap_duration": _opt("Float64", _range(0, 600, include_min=False)),
+                "lap_duration": _opt(
+                    "Float64", _range(0, MAX_LAP_SECONDS, include_min=False)
+                ),
                 "duration_sector_1": _opt("Float64", _range(0, 600, include_min=False)),
                 "duration_sector_2": _opt("Float64", _range(0, 600, include_min=False)),
                 "duration_sector_3": _opt("Float64", _range(0, 600, include_min=False)),

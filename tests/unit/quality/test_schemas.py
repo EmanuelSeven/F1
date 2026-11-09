@@ -47,9 +47,30 @@ def test_laps_schema_rejects_duplicate_business_key():
 def test_laps_schema_rejects_out_of_range_values():
     df = _laps()
     df.loc[1, "lap_number"] = 0
-    df.loc[2, "lap_duration"] = 900.0
+    df.loc[2, "lap_duration"] = 99_999.0
     checks = _failed_checks(df, Endpoint.LAPS)
     assert any(c.startswith("in_range") for c in checks)
+
+
+def test_red_flag_lap_and_testing_lap_numbers_are_valid():
+    """Regressões: volta de ~30 min (bandeira vermelha, Monza/México 2026) e
+    volta 153 de um dia de testes de pré-temporada."""
+    df = _laps()
+    df.loc[1, "lap_duration"] = 1839.4
+    df.loc[2, "lap_number"] = 153
+    schema_for(Endpoint.LAPS).validate(df, lazy=True)
+
+
+@pytest.mark.parametrize(
+    ("column", "value"),
+    [("lap_number", 301), ("lap_duration", 14_401.0), ("lap_duration", 0.0)],
+)
+def test_absurd_lap_values_are_rejected(column, value):
+    df = _laps()
+    df.loc[1, column] = value
+    with pytest.raises(SchemaErrors) as exc:
+        schema_for(Endpoint.LAPS).validate(df, lazy=True)
+    assert set(exc.value.failure_cases["column"]) == {column}
 
 
 def test_stints_schema_checks_compound_and_lap_order():
