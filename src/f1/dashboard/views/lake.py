@@ -13,6 +13,7 @@ from f1.dashboard.loaders import (
     datasets_table,
     is_lake_empty,
     layers_table,
+    rejection_totals,
     rejection_trend,
 )
 from f1.dashboard.views import charts
@@ -61,8 +62,8 @@ def default_dataset(history: pd.DataFrame) -> str:
 def render_rejection_history(data_dir: Path) -> None:
     st.subheader("Histórico de rejeições")
     st.caption(
-        "Taxa de registros rejeitados por regra em cada carga. A quarentena "
-        "guarda só a última carga; este histórico guarda todas."
+        "Taxa de registros rejeitados em cada carga: total e por regra violada. "
+        "A quarentena guarda só a última carga; este histórico guarda todas."
     )
     history = rejection_history(data_dir)
     if history.empty:
@@ -88,16 +89,15 @@ def render_rejection_history(data_dir: Path) -> None:
     )
     meeting_key = None if choice == ALL_PARTITIONS else int(choice)
 
+    totals = rejection_totals(history, dataset, meeting_key)
     trend = rejection_trend(history, dataset, meeting_key)
     if trend.empty:
-        runs = history.loc[history["dataset"] == dataset, "run_id"].nunique()
-        st.success(f"Nenhuma rejeição em {runs} carga(s) de `{dataset}`.")
-        return
+        st.success(f"Nenhuma rejeição em {len(totals)} carga(s) de `{dataset}`.")
     st.plotly_chart(
-        charts.rejection_trend_chart(trend),
+        charts.rejection_trend_chart(totals, trend),
         config=PLOT_CONFIG,
         key=f"rejections_{dataset}_{choice}",
-        alt=f"Taxa de rejeição por regra ao longo das cargas de {dataset}",
+        alt=f"Taxa de rejeição ao longo das cargas de {dataset}, total e por regra",
     )
 
 

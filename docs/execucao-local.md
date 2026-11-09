@@ -250,7 +250,7 @@ Estado técnico do lake:
 - **Métricas gerais:** arquivos na bronze, registros processados (silver), registros rejeitados (quarentena), último `run_id` e data/hora da última execução (UTC).
 - **Estado das camadas:** para bronze, silver e quarentena, se existe, a quantidade de arquivos e datasets e o tamanho.
 - **Datasets silver:** partições, registros, rejeitados e última execução de cada dataset.
-- **Histórico de rejeições:** taxa de rejeição de cada regra ao longo das cargas, com filtro por dataset e por meeting (para separar reprocessamento de partição nova). Cargas abortadas aparecem com `x`.
+- **Histórico de rejeições:** taxa de rejeição total (desde a primeira carga, mesmo em 0%) e de cada regra violada ao longo das cargas, com filtro por dataset e por meeting (para separar reprocessamento de partição nova). Cargas abortadas aparecem com `x`.
 
 Os números ficam em cache por 60 s; o botão **Recarregar dados** força uma nova leitura.
 
