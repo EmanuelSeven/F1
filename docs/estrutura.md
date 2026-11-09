@@ -41,7 +41,8 @@ src/f1/
 │   ├── atomic.py               # Troca atômica segura com gravações concorrentes
 │   ├── bronze.py               # JSON bruto com escrita atômica
 │   ├── parquet_writer.py       # Overwrite atômico de partição
-│   └── quarantine.py           # Rejeitados (limpa a partição se vazio)
+│   ├── quarantine.py           # Rejeitados (limpa a partição se vazio)
+│   └── rejection_history.py    # Contagem de rejeições por carga (só acréscimos)
 ├── pipelines/
 │   ├── common.py               # normaliza → valida → silver/quarentena
 │   ├── calendar.py             # meetings + sessions de um ano

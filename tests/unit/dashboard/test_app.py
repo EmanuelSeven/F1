@@ -238,6 +238,14 @@ def test_lake_page_shows_platform_metrics(data_env, populated_lake):
     assert len(app.dataframe) == 2
     assert not app.info
 
+    # Histórico: abre no dataset com rejeições (laps) e desenha a tendência.
+    assert app.selectbox(key="rejections_dataset").value == "laps"
+    assert len(app.get("plotly_chart")) == 1
+
+    app.selectbox(key="rejections_dataset").set_value("meetings").run()
+    assert not app.exception
+    assert "Nenhuma rejeição em 1 carga(s)" in app.success[0].value
+
     app.button[0].click().run()
     assert _metrics(app)["Registros processados"] == "31"
 
@@ -247,6 +255,7 @@ def test_lake_page_empty_points_to_season_page(data_env, tmp_path):
 
     assert not app.exception
     assert "Temporada" in app.info[0].value
+    assert "Nenhuma carga registrada" in app.info[1].value
     assert _metrics(app)["Último run_id"] == "—"
 
 

@@ -10,6 +10,7 @@ from f1.pipelines.meeting import fetch_meeting, run_meeting
 from f1.storage.bronze import JsonRawStore
 from f1.storage.parquet_writer import ParquetDatasetStore
 from f1.storage.quarantine import QuarantineStore
+from f1.storage.rejection_history import RejectionHistoryStore
 from tests.conftest import FakeOpenF1Source
 
 
@@ -18,6 +19,7 @@ def _stores(data_dir: Path) -> LakeStores:
         raw=JsonRawStore(data_dir / "bronze"),
         silver=ParquetDatasetStore(data_dir / "silver"),
         quarantine=QuarantineStore(data_dir / "quarantine"),
+        rejections=RejectionHistoryStore(data_dir / "rejection_history"),
     )
 
 

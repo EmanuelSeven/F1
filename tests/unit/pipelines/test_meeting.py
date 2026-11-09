@@ -1,6 +1,7 @@
 import pandas as pd
 import pytest
 
+from f1.dashboard.loaders import load_rejection_history
 from f1.domain.endpoints import Endpoint
 from f1.domain.models import MeetingRef, Partition
 from f1.pipelines.common import RunContext
@@ -75,19 +76,32 @@ def test_run_meeting_quarantines_invalid_rows(openf1_data, stores, tmp_path):
     assert rejected["_reject_reason"].str.contains("lap_number").all()
     assert rejected["_run_id"].tolist() == ["run-q"]
 
-    # Reexecução sem rejeitados limpa a quarentena.
+    # Reexecução sem rejeitados limpa a quarentena, mas o histórico guarda as duas.
     clean = FakeOpenF1Source({**openf1_data, Endpoint.LAPS: laps})
-    run_meeting(clean, stores, ctx, fetch_meeting(clean, 1219), [Endpoint.LAPS])
+    clean_ctx = RunContext("run-clean", max_rejection_rate=0.5)
+    run_meeting(clean, stores, clean_ctx, fetch_meeting(clean, 1219), [Endpoint.LAPS])
     assert not (tmp_path / "quarantine/laps/season=2023/meeting_key=1219").exists()
 
+    history = load_rejection_history(tmp_path)
+    by_run = history.set_index("run_id")
+    assert sorted(history["run_id"]) == ["run-clean", "run-q"]
+    assert by_run.loc["run-q", "rule"].startswith("lap_number:")
+    assert by_run.loc["run-q", ["rejected", "records_read"]].tolist() == [1, 9]
+    assert pd.isna(by_run.loc["run-clean", "rule"])
+    assert by_run.loc["run-clean", ["rejected", "records_read"]].tolist() == [0, 8]
+    assert not history["aborted"].any()
 
-def test_run_meeting_fails_above_rejection_rate(openf1_data, stores, ctx):
+
+def test_run_meeting_fails_above_rejection_rate(openf1_data, stores, ctx, tmp_path):
     openf1_data[Endpoint.PIT][0]["lap_number"] = 0
     source = FakeOpenF1Source(openf1_data)
 
     with pytest.raises(DataQualityError):
         run_meeting(source, stores, ctx, fetch_meeting(source, 1219), [Endpoint.PIT])
     assert len(stores.quarantine.read_partition("pit_stops", PARTITION)) == 1
+
+    [row] = load_rejection_history(tmp_path).to_dict("records")
+    assert (row["dataset"], row["rejected"], row["aborted"]) == ("pit_stops", 1, True)
 
 
 def test_run_meeting_rejects_calendar_endpoints(fake_source, stores, ctx):

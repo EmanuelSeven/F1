@@ -28,3 +28,9 @@ class DatasetStore[FrameT](Protocol):
     def write_partition(
         self, dataset: str, partition: Partition, frame: FrameT
     ) -> Path | None: ...
+
+
+class AppendStore[FrameT](Protocol):
+    """Store que só acrescenta (não sobrescreve cargas anteriores)."""
+
+    def append(self, dataset: str, partition: Partition, frame: FrameT) -> Path: ...

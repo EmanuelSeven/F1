@@ -15,11 +15,63 @@ from f1.dashboard.loaders import (
     race_details_loaded,
     read_dataset,
     read_lineage,
+    rejection_trend,
     season_is_loaded,
 )
 from f1.domain.endpoints import Endpoint
 from f1.domain.models import Partition
 from f1.storage.parquet_writer import ParquetDatasetStore
+from f1.storage.rejection_history import COLUMNS, rejection_rows
+
+
+def _history(*loads: tuple[str, int, int, list[str], int]) -> pd.DataFrame:
+    """Linhas do histórico: (run_id, hora, meeting_key, motivos, lidos)."""
+    frames = [
+        rejection_rows(
+            run_id=run_id,
+            recorded_at=datetime(2026, 11, 9, hour, tzinfo=UTC),
+            dataset="laps",
+            partition=Partition(2023, meeting_key),
+            rejected=pd.DataFrame({"_reject_reason": reasons}),
+            records_read=read,
+            aborted=False,
+        )
+        for run_id, hour, meeting_key, reasons, read in loads
+    ]
+    return pd.concat(frames, ignore_index=True).astype(COLUMNS)
+
+
+def test_rejection_trend_rate_per_rule_and_run():
+    history = _history(
+        ("r1", 10, 1, ["a:x", "a:x; b:y"], 10),
+        ("r1", 10, 2, ["a:x"], 10),
+        ("r2", 11, 1, [], 20),  # carga limpa: zero para todas as regras
+        ("r3", 12, 2, ["b:y"], 5),
+    )
+
+    trend = rejection_trend(history, "laps")
+
+    rows = trend[["run_id", "rule", "rejected", "records_read", "rate"]]
+    assert rows.values.tolist() == [
+        ["r1", "a:x", 3, 20, 0.15],
+        ["r1", "b:y", 1, 20, 0.05],
+        ["r2", "a:x", 0, 20, 0.0],
+        ["r2", "b:y", 0, 20, 0.0],
+        ["r3", "a:x", 0, 5, 0.0],
+        ["r3", "b:y", 1, 5, 0.2],
+    ]
+
+
+def test_rejection_trend_filters_meeting_and_dataset():
+    history = _history(
+        ("r1", 10, 1, ["a:x"], 10),
+        ("r2", 11, 2, ["a:x"], 4),
+    )
+
+    trend = rejection_trend(history, "laps", meeting_key=2)
+    assert trend[["run_id", "rate"]].values.tolist() == [["r2", 0.25]]
+    assert rejection_trend(history, "stints").empty
+    assert rejection_trend(_history(("r1", 10, 1, [], 10)), "laps").empty
 
 
 def test_platform_summary_counts_layers_records_and_rejections(populated_lake):

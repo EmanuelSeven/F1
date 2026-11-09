@@ -2,16 +2,18 @@
 
 from collections.abc import Sequence
 from dataclasses import dataclass
+from datetime import UTC, datetime
 
 import pandas as pd
 
 from f1.domain.endpoints import Endpoint, spec_for
 from f1.domain.models import Partition, Record
-from f1.domain.ports import DatasetStore, RawStore
+from f1.domain.ports import AppendStore, DatasetStore, RawStore
 from f1.processing.lineage import add_lineage_columns
 from f1.processing.normalize import normalize
 from f1.quality.schemas import schema_for
 from f1.quality.validation import DataQualityError, ValidationResult, validate
+from f1.storage.rejection_history import rejection_rows
 from f1.utils.metrics import PipelineMetrics, track_pipeline
 
 
@@ -20,6 +22,7 @@ class LakeStores:
     raw: RawStore
     silver: DatasetStore[pd.DataFrame]
     quarantine: DatasetStore[pd.DataFrame]
+    rejections: AppendStore[pd.DataFrame]
 
 
 @dataclass(frozen=True)
@@ -35,7 +38,11 @@ def load_dataset(
     stores: LakeStores,
     ctx: RunContext,
 ) -> PipelineMetrics:
-    """Normaliza, valida e sobrescreve a partição silver (e a de quarentena)."""
+    """Normaliza, valida e sobrescreve a partição silver (e a de quarentena).
+
+    Também acrescenta a contagem de rejeições ao histórico, inclusive quando a
+    carga é abortada por excesso de rejeições.
+    """
     dataset = spec_for(endpoint).dataset
     with track_pipeline(
         f"silver.{dataset}", destination=f"{dataset}/{partition}", run_id=ctx.run_id
@@ -47,6 +54,9 @@ def load_dataset(
         except DataQualityError as exc:
             metrics.records_rejected = len(exc.result.rejected)
             _write_quarantine(endpoint, exc.result, partition, stores, ctx)
+            _record_rejections(
+                dataset, exc.result, partition, stores, ctx, aborted=True
+            )
             raise
         metrics.records_processed = len(result.valid)
         metrics.records_rejected = len(result.rejected)
@@ -54,6 +64,7 @@ def load_dataset(
             dataset, partition, _with_lineage(result.valid, endpoint, ctx)
         )
         _write_quarantine(endpoint, result, partition, stores, ctx)
+        _record_rejections(dataset, result, partition, stores, ctx, aborted=False)
     return metrics
 
 
@@ -75,3 +86,24 @@ def _write_quarantine(
         partition,
         _with_lineage(result.rejected, endpoint, ctx),
     )
+
+
+def _record_rejections(  # noqa: PLR0913
+    dataset: str,
+    result: ValidationResult,
+    partition: Partition,
+    stores: LakeStores,
+    ctx: RunContext,
+    *,
+    aborted: bool,
+) -> None:
+    rows = rejection_rows(
+        run_id=ctx.run_id,
+        recorded_at=datetime.now(UTC),
+        dataset=dataset,
+        partition=partition,
+        rejected=result.rejected,
+        records_read=result.total,
+        aborted=aborted,
+    )
+    stores.rejections.append(dataset, partition, rows)
