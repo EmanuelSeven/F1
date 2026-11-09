@@ -109,6 +109,47 @@ def test_points_bar_flags_follow_zero_points_toggle(show_zero):
     assert [i.y for i in fig.layout.images] == list(range(len(expected)))
 
 
+def test_rejection_trend_chart_total_first_and_readable_axes():
+    def frame(rate: float, **extra: object) -> pd.DataFrame:
+        return pd.DataFrame(
+            {
+                "run_id": ["r1"],
+                "recorded_at": [pd.Timestamp("2026-11-09 10:19:44", tz="UTC")],
+                "rejected": [2],
+                "records_read": [526],
+                "rate": [rate],
+                "aborted": [False],
+                **{k: [v] for k, v in extra.items()},
+            }
+        )
+
+    fig = charts.rejection_trend_chart(frame(0.004), frame(0.004, rule="a:x"))
+
+    assert [t.name for t in fig.data] == ["Total", "a:x"]
+    assert fig.layout.showlegend is True
+    assert fig.layout.yaxis.range[1] == charts.MIN_RATE_AXIS  # taxas pequenas
+    stops = {s.value for s in fig.layout.xaxis.tickformatstops}
+    assert "%H:%M:%S" in stops  # cargas com segundos de diferença
+
+
+def test_rejection_trend_chart_only_total_without_rejections():
+    totals = pd.DataFrame(
+        {
+            "run_id": ["r1"],
+            "recorded_at": [pd.Timestamp("2026-11-09", tz="UTC")],
+            "rejected": [0],
+            "records_read": [10],
+            "rate": [0.0],
+            "aborted": [False],
+        }
+    )
+    empty = pd.DataFrame(columns=[*totals.columns, "rule"])
+
+    fig = charts.rejection_trend_chart(totals, empty)
+
+    assert [t.name for t in fig.data] == ["Total"]
+
+
 def test_lap_times_chart_one_line_per_driver(frames):
     laps = lap_times(frames[Endpoint.LAPS], frames[Endpoint.DRIVERS], RACE)
     fig = charts.lap_times_chart(laps)

@@ -220,6 +220,14 @@ def weather_chart(weather: pd.DataFrame) -> go.Figure:
 TOTAL_LABEL = "Total"
 TOTAL_COLOUR = "#E6E6E6"
 MIN_RATE_AXIS = 0.05  # com taxas ~0%, o eixo vai até 5% e a linha fica legível
+# Formato das datas conforme o intervalo entre marcas (em ms): cargas com
+# segundos de diferença não repetem o mesmo "dd/mm hh:mm" em todas as marcas.
+MINUTE_MS, DAY_MS = 60_000, 86_400_000
+DATE_TICK_STOPS: list[dict[str, Any]] = [
+    {"dtickrange": [None, MINUTE_MS], "value": "%H:%M:%S"},
+    {"dtickrange": [MINUTE_MS, DAY_MS], "value": "%d/%m<br>%H:%M"},
+    {"dtickrange": [DAY_MS, None], "value": "%d/%m"},
+]
 
 
 def _rate_trace(rows: pd.DataFrame, name: str, line: dict[str, Any]) -> go.Scatter:
@@ -262,7 +270,7 @@ def rejection_trend_chart(totals: pd.DataFrame, trend: pd.DataFrame) -> go.Figur
     fig.update_layout(
         **base_layout(
             380,
-            xaxis={"title": "Carga (UTC)", "tickformat": "%d/%m<br>%H:%M"},
+            xaxis={"title": "Carga (UTC)", "tickformatstops": DATE_TICK_STOPS},
             yaxis={
                 "title": "Taxa de rejeição",
                 "tickformat": ".0%",
