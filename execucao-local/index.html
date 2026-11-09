@@ -563,6 +563,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#contador-de-acessos" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Contador de acessos
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#ultima-corrida-pagina-inicial" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -942,6 +953,17 @@
 </li>
         
           <li class="md-nav__item">
+  <a href="#contador-de-acessos" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Contador de acessos
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
   <a href="#ultima-corrida-pagina-inicial" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -1078,8 +1100,19 @@
 <td><code>0.05</code></td>
 <td>Taxa máxima de rejeição antes de falhar</td>
 </tr>
+<tr>
+<td><code>F1_SUPABASE_URL</code></td>
+<td>vazio</td>
+<td>URL do projeto Supabase do contador de acessos (ex.: <code>https://xyz.supabase.co</code>)</td>
+</tr>
+<tr>
+<td><code>F1_SUPABASE_KEY</code></td>
+<td>vazio</td>
+<td>Chave <code>anon</code> (pública) do projeto Supabase</td>
+</tr>
 </tbody>
 </table>
+<p>Sem <code>F1_SUPABASE_URL</code> ou <code>F1_SUPABASE_KEY</code>, o contador de acessos do dashboard fica desligado (veja <a href="#contador-de-acessos">Contador de acessos</a>).</p>
 <h2 id="comandos">Comandos<a class="headerlink" href="#comandos" title="Permanent link">&para;</a></h2>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="c1"># Calendário (meetings + sessions) de um ano</span>
 <a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>poetry<span class="w"> </span>run<span class="w"> </span>python<span class="w"> </span>-m<span class="w"> </span>f1<span class="w"> </span>calendar<span class="w"> </span>--year<span class="w"> </span><span class="m">2026</span>
@@ -1181,9 +1214,51 @@
 </table>
 <p>Os filtros ficam em <code>st.session_state</code>, então continuam valendo ao trocar de página.</p>
 <p>Nas páginas que usam o filtro, marcar Classificação ou Treino livre baixa sob demanda os resultados dessas sessões, junto com os tipos já carregados.</p>
-<p>No rodapé aparece "Dados: OpenF1 · última atualização {data}", com a data da ingestão mais recente no lake, no horário de Brasília (ex.: "08/11/2026 20:13 (Brasília)").</p>
+<p>No rodapé aparece "Dados: OpenF1 · última atualização {data}", com a data da ingestão mais recente no lake, no horário de Brasília (ex.: "08/11/2026 20:13 (Brasília)"). Com o contador de acessos ligado, o rodapé termina com o total, ex.: "· 👁️ 1.234 acessos".</p>
 <p>Um piloto que usou mais de um número no ano aparece uma única vez, com os pontos somados. Por exemplo, Oliver Bearman em 2024: #38 pela Ferrari e #50 pela Haas.</p>
 <p>Cada página mostra só os filtros que usa. Na <strong>Última corrida</strong>, o seletor de temporada aparece desabilitado, com o ano da corrida exibida e uma explicação, e os demais filtros ficam ocultos. Os valores escolhidos continuam guardados ao trocar de página.</p>
+<h3 id="contador-de-acessos">Contador de acessos<a class="headerlink" href="#contador-de-acessos" title="Permanent link">&para;</a></h3>
+<p>O total de acessos fica no <a href="https://supabase.com">Supabase</a> (Postgres), e não num arquivo local, porque o Streamlit Community Cloud apaga o disco a cada reinício. O dashboard chama a função <code>increment_page_views</code> pela API REST (<code>POST {F1_SUPABASE_URL}/rest/v1/rpc/increment_page_views</code>), com timeout de 3 s (<code>f1.dashboard.visits</code>).</p>
+<ul>
+<li>Conta uma vez por sessão do navegador: o total fica em <code>st.session_state["page_views"]</code>, e trocar de página, mexer nos filtros ou qualquer rerun não conta de novo. Recarregar a aba (F5) abre uma nova sessão e conta.</li>
+<li>Qualquer falha (rede, timeout, HTTP, resposta inválida) gera um <code>logger.warning</code> com o evento <code>page_views_failed</code>, o total some do rodapé e o dashboard segue normal. A falha também fica guardada na sessão, para não repetir a requisição a cada rerun.</li>
+</ul>
+<p>Para ligar:</p>
+<ol>
+<li>
+<p>Crie um projeto no Supabase e rode o SQL abaixo no <strong>SQL Editor</strong>:</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="k">create</span><span class="w"> </span><span class="k">table</span><span class="w"> </span><span class="k">if</span><span class="w"> </span><span class="k">not</span><span class="w"> </span><span class="k">exists</span><span class="w"> </span><span class="k">public</span><span class="p">.</span><span class="n">page_views</span><span class="w"> </span><span class="p">(</span>
+<a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="w">  </span><span class="n">id</span><span class="w"> </span><span class="nb">smallint</span><span class="w"> </span><span class="k">primary</span><span class="w"> </span><span class="k">key</span><span class="w"> </span><span class="k">default</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="k">check</span><span class="w"> </span><span class="p">(</span><span class="n">id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="p">),</span>
+<a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="w">  </span><span class="n">total</span><span class="w"> </span><span class="nb">bigint</span><span class="w"> </span><span class="k">not</span><span class="w"> </span><span class="k">null</span><span class="w"> </span><span class="k">default</span><span class="w"> </span><span class="mi">0</span>
+<a id="__codelineno-6-4" name="__codelineno-6-4" href="#__codelineno-6-4"></a><span class="p">);</span>
+<a id="__codelineno-6-5" name="__codelineno-6-5" href="#__codelineno-6-5"></a><span class="k">insert</span><span class="w"> </span><span class="k">into</span><span class="w"> </span><span class="k">public</span><span class="p">.</span><span class="n">page_views</span><span class="w"> </span><span class="p">(</span><span class="n">id</span><span class="p">,</span><span class="w"> </span><span class="n">total</span><span class="p">)</span><span class="w"> </span><span class="k">values</span><span class="w"> </span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="w"> </span><span class="mi">0</span><span class="p">)</span><span class="w"> </span><span class="k">on</span><span class="w"> </span><span class="n">conflict</span><span class="w"> </span><span class="k">do</span><span class="w"> </span><span class="k">nothing</span><span class="p">;</span>
+<a id="__codelineno-6-6" name="__codelineno-6-6" href="#__codelineno-6-6"></a><span class="k">alter</span><span class="w"> </span><span class="k">table</span><span class="w"> </span><span class="k">public</span><span class="p">.</span><span class="n">page_views</span><span class="w"> </span><span class="n">enable</span><span class="w"> </span><span class="k">row</span><span class="w"> </span><span class="k">level</span><span class="w"> </span><span class="k">security</span><span class="p">;</span>
+<a id="__codelineno-6-7" name="__codelineno-6-7" href="#__codelineno-6-7"></a>
+<a id="__codelineno-6-8" name="__codelineno-6-8" href="#__codelineno-6-8"></a><span class="k">create</span><span class="w"> </span><span class="k">or</span><span class="w"> </span><span class="k">replace</span><span class="w"> </span><span class="k">function</span><span class="w"> </span><span class="k">public</span><span class="p">.</span><span class="n">increment_page_views</span><span class="p">()</span>
+<a id="__codelineno-6-9" name="__codelineno-6-9" href="#__codelineno-6-9"></a><span class="k">returns</span><span class="w"> </span><span class="nb">bigint</span>
+<a id="__codelineno-6-10" name="__codelineno-6-10" href="#__codelineno-6-10"></a><span class="k">language</span><span class="w"> </span><span class="k">sql</span>
+<a id="__codelineno-6-11" name="__codelineno-6-11" href="#__codelineno-6-11"></a><span class="k">security</span><span class="w"> </span><span class="k">definer</span>
+<a id="__codelineno-6-12" name="__codelineno-6-12" href="#__codelineno-6-12"></a><span class="k">set</span><span class="w"> </span><span class="n">search_path</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s1">''</span>
+<a id="__codelineno-6-13" name="__codelineno-6-13" href="#__codelineno-6-13"></a><span class="k">as</span><span class="w"> </span><span class="err">$$</span>
+<a id="__codelineno-6-14" name="__codelineno-6-14" href="#__codelineno-6-14"></a><span class="w">  </span><span class="k">update</span><span class="w"> </span><span class="k">public</span><span class="p">.</span><span class="n">page_views</span><span class="w"> </span><span class="k">set</span><span class="w"> </span><span class="n">total</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="n">total</span><span class="w"> </span><span class="o">+</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="k">where</span><span class="w"> </span><span class="n">id</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="mi">1</span><span class="w"> </span><span class="n">returning</span><span class="w"> </span><span class="n">total</span><span class="p">;</span>
+<a id="__codelineno-6-15" name="__codelineno-6-15" href="#__codelineno-6-15"></a><span class="err">$$</span><span class="p">;</span>
+<a id="__codelineno-6-16" name="__codelineno-6-16" href="#__codelineno-6-16"></a>
+<a id="__codelineno-6-17" name="__codelineno-6-17" href="#__codelineno-6-17"></a><span class="k">revoke</span><span class="w"> </span><span class="k">all</span><span class="w"> </span><span class="k">on</span><span class="w"> </span><span class="k">function</span><span class="w"> </span><span class="k">public</span><span class="p">.</span><span class="n">increment_page_views</span><span class="p">()</span><span class="w"> </span><span class="k">from</span><span class="w"> </span><span class="k">public</span><span class="p">;</span>
+<a id="__codelineno-6-18" name="__codelineno-6-18" href="#__codelineno-6-18"></a><span class="k">grant</span><span class="w"> </span><span class="k">execute</span><span class="w"> </span><span class="k">on</span><span class="w"> </span><span class="k">function</span><span class="w"> </span><span class="k">public</span><span class="p">.</span><span class="n">increment_page_views</span><span class="p">()</span><span class="w"> </span><span class="k">to</span><span class="w"> </span><span class="n">anon</span><span class="p">;</span>
+</code></pre></div>
+<p>A tabela tem uma única linha (<code>id = 1</code>). Com RLS ligado e sem políticas, a chave <code>anon</code> não lê nem altera a tabela diretamente: ela só pode executar a função, que roda com os privilégios do dono (<code>security definer</code>) e apenas soma 1.</p>
+</li>
+<li>
+<p>Em <strong>Project Settings → API</strong>, copie a URL do projeto e a chave <code>anon</code> (pública). Não use a chave <code>service_role</code>.</p>
+</li>
+<li>
+<p>Localmente, preencha <code>F1_SUPABASE_URL</code> e <code>F1_SUPABASE_KEY</code> no <code>.env</code>. No Streamlit Community Cloud, adicione as duas em <strong>Settings → Secrets</strong>, no nível raiz (o Streamlit expõe as chaves da raiz também como variáveis de ambiente):</p>
+<div class="highlight"><pre><span></span><code><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="n">F1_SUPABASE_URL</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"https://xyz.supabase.co"</span>
+<a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="n">F1_SUPABASE_KEY</span><span class="w"> </span><span class="o">=</span><span class="w"> </span><span class="s2">"&lt;chave anon&gt;"</span>
+</code></pre></div>
+</li>
+</ol>
+<p>Os testes desligam o contador (<code>F1_SUPABASE_*</code> vazios), mesmo que o <code>.env</code> local as tenha.</p>
 <h3 id="ultima-corrida-pagina-inicial">Última corrida (página inicial)<a class="headerlink" href="#ultima-corrida-pagina-inicial" title="Permanent link">&para;</a></h3>
 <p>A corrida principal mais recente <strong>já concluída</strong>: sessão <em>Race</em> com <code>date_end</code> no passado e resultados disponíveis. Não usa o filtro de temporada: procura no ano atual e, no início do ano, no anterior.</p>
 <ul>
