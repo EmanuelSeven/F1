@@ -131,3 +131,16 @@ def test_own_client_uses_short_timeout(monkeypatch):
     monkeypatch.setattr(visits.httpx, "Client", factory)
     assert register_visit(_settings()) == 7
     assert created == [{"timeout": visits.TIMEOUT_SECONDS}]
+
+
+def test_unexpected_error_does_not_break_the_page(monkeypatch):
+    """Ex.: ``Settings`` antigo em memória, sem ``supabase_url``."""
+
+    def broken(_settings, client=None):
+        raise AttributeError("'Settings' object has no attribute 'supabase_url'")
+
+    monkeypatch.setattr(visits, "register_visit", broken)
+    app = AppTest.from_function(_session_script)
+    app.run()
+    assert not app.exception
+    assert app.markdown[0].value == "None"
