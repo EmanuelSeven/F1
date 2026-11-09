@@ -30,7 +30,6 @@ from f1.utils.metrics import new_run_id
 
 logger = logging.getLogger(__name__)
 
-BOOTSTRAP_YEAR = 2024
 FIRST_SEASON = 2023  # dados históricos gratuitos da OpenF1 começam em 2023
 
 type SourceFactory = Callable[[Settings], AbstractContextManager[OpenF1Source]]
@@ -59,7 +58,7 @@ def _factory(source_factory: SourceFactory | None) -> SourceFactory:
 
 def run_season_bootstrap(
     settings: Settings,
-    year: int = BOOTSTRAP_YEAR,
+    year: int,
     source_factory: SourceFactory | None = None,
     now: datetime | None = None,
     kinds: tuple[SessionKind, ...] = POINTS_KINDS,

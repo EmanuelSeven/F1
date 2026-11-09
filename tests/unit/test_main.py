@@ -30,7 +30,7 @@ def fake_client(monkeypatch, openf1_data):
 
 def test_parser_datasets_option():
     args = cli.build_parser().parse_args(
-        ["season", "--year", "2024", "--datasets", "laps,pit_stops"]
+        ["season", "--year", "2026", "--datasets", "laps,pit_stops"]
     )
     assert args.datasets == (Endpoint.LAPS, Endpoint.PIT)
     default = cli.build_parser().parse_args(["meeting", "--meeting-key", "1"])
@@ -40,7 +40,7 @@ def test_parser_datasets_option():
 def test_parser_rejects_unknown_dataset(capsys):
     with pytest.raises(SystemExit):
         cli.build_parser().parse_args(
-            ["season", "--year", "2024", "--datasets", "car_data"]
+            ["season", "--year", "2026", "--datasets", "car_data"]
         )
     assert "car_data" in capsys.readouterr().err
 

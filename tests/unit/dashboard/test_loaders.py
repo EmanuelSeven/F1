@@ -86,9 +86,9 @@ def test_latest_run_picks_most_recent():
             "_run_id": pd.array(["old", "new", None], dtype="string"),
             "_ingested_at": pd.Series(
                 [
-                    datetime(2024, 1, 1, tzinfo=UTC),
-                    datetime(2024, 1, 2, tzinfo=UTC),
-                    datetime(2024, 1, 3, tzinfo=UTC),
+                    datetime(2026, 1, 1, tzinfo=UTC),
+                    datetime(2026, 1, 2, tzinfo=UTC),
+                    datetime(2026, 1, 3, tzinfo=UTC),
                 ],
                 dtype="datetime64[ns, UTC]",
             ),
@@ -96,7 +96,7 @@ def test_latest_run_picks_most_recent():
     )
     run = latest_run(lineage)
     assert run is not None
-    assert (run.run_id, run.ingested_at) == ("new", datetime(2024, 1, 2, tzinfo=UTC))
+    assert (run.run_id, run.ingested_at) == ("new", datetime(2026, 1, 2, tzinfo=UTC))
 
 
 def test_tables_have_one_row_per_item(populated_lake):
@@ -110,7 +110,7 @@ def test_tables_have_one_row_per_item(populated_lake):
 
 
 def test_read_dataset_empty_is_typed(tmp_path):
-    df = read_dataset(tmp_path, Endpoint.SESSION_RESULT, 2024)
+    df = read_dataset(tmp_path, Endpoint.SESSION_RESULT, 2026)
 
     assert df.empty
     assert str(df["points"].dtype) == "Float64"
@@ -130,7 +130,7 @@ def test_read_dataset_adds_columns_missing_from_old_partitions(populated_lake):
 
 def test_season_and_race_readers(populated_lake):
     assert season_is_loaded(populated_lake, 2023)
-    assert not season_is_loaded(populated_lake, 2024)
+    assert not season_is_loaded(populated_lake, 2026)
     assert race_details_loaded(populated_lake, 2023, 1219)
     assert not race_details_loaded(populated_lake, 2023, 1)
 

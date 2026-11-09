@@ -31,8 +31,8 @@ def test_filter_rejects_invalid(field, value, op):
 
 
 def test_partition_segments():
-    assert str(Partition(2024)) == "season=2024"
-    assert Partition(2024, 1229).segments() == ("season=2024", "meeting_key=1229")
+    assert str(Partition(2026)) == "season=2026"
+    assert Partition(2026, 1229).segments() == ("season=2026", "meeting_key=1229")
 
 
 def test_meeting_ref_from_record():

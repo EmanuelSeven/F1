@@ -10,6 +10,8 @@ from f1.processing.last_race import (
     choose_last_race,
     classification_with_grid,
     completed_races,
+    default_season,
+    has_completed_race,
     positions_gained,
     race_grid,
     race_highlights,
@@ -194,8 +196,8 @@ def _two_rounds():
     sessions = normalize(
         Endpoint.SESSIONS,
         [
-            _session(1, 10, start="2024-03-02T15:00:00"),
-            _session(2, 20, start="2024-03-09T17:00:00"),
+            _session(1, 10, start="2026-03-02T15:00:00"),
+            _session(2, 20, start="2026-03-09T17:00:00"),
         ],
     )
     drivers = normalize(
@@ -286,3 +288,61 @@ def test_championship_after_shows_position_change():
 def test_championship_after_top_limit():
     results, sessions, drivers = _two_rounds()
     assert len(championship_after(results, sessions, drivers, 2, top=2)) == 2
+
+
+# --- ano padrão do filtro "Temporada" -------------------------------------
+
+YEARS_2027 = [2027, 2026, 2025, 2024, 2023]
+
+
+def _season_calendar(year: int, race_day: str) -> pd.DataFrame:
+    return normalize(
+        Endpoint.SESSIONS,
+        [_session(int(f"{year}01"), year, start=f"{race_day}T13:00:00")],
+    )
+
+
+def test_default_season_before_first_race_of_the_year():
+    """Hoje é 10/03/2027 e a 1ª corrida de 2027 é em 14/03 → padrão 2026."""
+    today = datetime(2027, 3, 10, tzinfo=UTC)
+    calendars = {
+        2027: _season_calendar(2027, "2027-03-14"),
+        2026: _season_calendar(2026, "2026-03-08"),
+    }
+
+    def completed(year: int) -> bool:
+        sessions = calendars.get(year)
+        return sessions is not None and has_completed_race(sessions, today)
+
+    assert default_season(YEARS_2027, completed) == 2026
+
+
+def test_default_season_after_first_race_of_the_year():
+    """Hoje é 20/03/2027: a corrida de 14/03 já aconteceu → padrão 2027."""
+    today = datetime(2027, 3, 20, tzinfo=UTC)
+    calendar = _season_calendar(2027, "2027-03-14")
+    assert (
+        default_season(
+            YEARS_2027, lambda y: y == 2027 and has_completed_race(calendar, today)
+        )
+        == 2027
+    )
+
+
+def test_default_season_when_query_fails_is_current_year():
+    def unavailable(_year: int) -> bool:
+        raise ConnectionError("OpenF1 fora do ar")
+
+    assert default_season(YEARS_2027, unavailable) == 2027
+
+
+def test_default_season_without_any_race_is_current_year():
+    assert default_season(YEARS_2027, lambda _y: False) == 2027
+
+
+def test_has_completed_race_ignores_unfinished_and_cancelled():
+    calendar = _season_calendar(2027, "2027-03-14")
+    assert not has_completed_race(calendar, datetime(2027, 3, 14, 12, tzinfo=UTC))
+    assert has_completed_race(calendar, datetime(2027, 3, 15, tzinfo=UTC))
+    cancelled = calendar.assign(is_cancelled=pd.array([True], dtype="boolean"))
+    assert not has_completed_race(cancelled, datetime(2027, 3, 15, tzinfo=UTC))

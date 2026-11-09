@@ -18,7 +18,7 @@ TIMEOUT = 60
 
 @pytest.fixture
 def stub(monkeypatch, openf1_data):
-    client = StubClient(as_season(openf1_data, 2024))
+    client = StubClient(as_season(openf1_data, 2026))
     monkeypatch.setattr(OpenF1Client, "from_settings", lambda _s: client)
     st.cache_resource.clear()
     st.cache_data.clear()
@@ -63,12 +63,13 @@ def test_sidebar_has_brand_filters_and_footer(app):
     footer = app.sidebar.caption[-1].value
     assert footer.startswith("Dados: OpenF1 · última atualização ")
     assert not footer.endswith("—")  # a carga inicial já registrou a ingestão
+    assert footer.endswith("(Brasília)")
 
 
 def test_season_selector_moved_out_of_the_page(app):
     assert len(app.main.selectbox) == 0
-    assert "Fórmula 1 · Temporada 2024" in _html(app)
-    assert app.selectbox(key="filter_season").value == 2024
+    assert "Fórmula 1 · Temporada 2026" in _html(app)
+    assert app.selectbox(key="filter_season").value == 2026
     kinds = app.multiselect(key="filter_kinds_locked")
     assert kinds.disabled
     assert kinds.value == ["race", "sprint"]
@@ -85,8 +86,8 @@ def test_year_is_kept_in_query_params(monkeypatch, tmp_path, stub, openf1_data):
     assert test.selectbox(key="filter_season").value == 2023
     assert "Fórmula 1 · Temporada 2023" in _html(test)
 
-    test.selectbox(key="filter_season").set_value(2024).run()
-    assert test.query_params["ano"] == "2024"
+    test.selectbox(key="filter_season").set_value(2026).run()
+    assert test.query_params["ano"] == "2026"
     get_settings.cache_clear()
 
 
@@ -141,7 +142,7 @@ def test_clear_filters_resets_all_but_the_season(app):
     assert not app.exception
     assert app.multiselect(key="filter_teams").value == []
     assert app.selectbox(key="filter_gp").value is None
-    assert app.selectbox(key="filter_season").value == 2024
+    assert app.selectbox(key="filter_season").value == 2026
 
 
 def test_filters_live_in_session_state(app):
@@ -150,7 +151,7 @@ def test_filters_live_in_session_state(app):
 
     assert app.session_state["filter_teams"] == ["Ferrari"]
     filters = app.session_state["dashboard_filters"]
-    assert (filters.year, filters.season.teams) == (2024, ("Ferrari",))
+    assert (filters.year, filters.season.teams) == (2026, ("Ferrari",))
     assert _chart_labels(app) == ["SAI"]
 
 
@@ -204,7 +205,7 @@ def _with_future_race(data):
         {
             "meeting_key": 1300,
             "meeting_name": "Future Grand Prix",
-            "year": 2024,
+            "year": 2026,
             "date_start": "2099-05-01T10:00:00+00:00",
             "date_end": "2099-05-03T15:00:00+00:00",
             "is_cancelled": False,
@@ -214,7 +215,7 @@ def _with_future_race(data):
         {
             "session_key": 9999,
             "meeting_key": 1300,
-            "year": 2024,
+            "year": 2026,
             "session_name": "Race",
             "session_type": "Race",
             "date_start": "2099-05-03T13:00:00+00:00",
@@ -226,10 +227,10 @@ def _with_future_race(data):
 
 
 def test_points_chart_hides_drivers_without_points(monkeypatch, tmp_path, openf1_data):
-    data = _with_zero_point_driver(as_season(openf1_data, 2024))
+    data = _with_zero_point_driver(as_season(openf1_data, 2026))
     app = _season_app(monkeypatch, tmp_path, data)
 
-    toggle = app.toggle(key="show_zero_2024")
+    toggle = app.toggle(key="show_zero_2026")
     assert toggle.label == "Mostrar pilotos sem pontos"
     assert toggle.value is False
     assert _chart_labels(app) == ["SAI", "VER"]
@@ -239,7 +240,7 @@ def test_points_chart_hides_drivers_without_points(monkeypatch, tmp_path, openf1
 
 
 def test_season_in_progress_shows_done_of_total(monkeypatch, tmp_path, openf1_data):
-    data = _with_future_race(as_season(openf1_data, 2024))
+    data = _with_future_race(as_season(openf1_data, 2026))
     app = _season_app(monkeypatch, tmp_path, data)
 
     html = _html(app)
@@ -260,7 +261,7 @@ def test_finished_season_keeps_plain_races_card(app):
 
 
 def test_season_page_ignores_saved_session_kinds(monkeypatch, tmp_path, openf1_data):
-    data = as_season(openf1_data, 2024)
+    data = as_season(openf1_data, 2026)
     client = StubClient(data)
     monkeypatch.setattr(OpenF1Client, "from_settings", lambda _s: client)
     monkeypatch.setenv("F1_DATA_DIR", str(tmp_path / "lake"))
@@ -397,7 +398,7 @@ def test_winners_table_shows_nationality_after_winner(app):
 def test_nationality_falls_back_to_acronym_or_stays_empty(
     monkeypatch, tmp_path, openf1_data
 ):
-    data = as_season(openf1_data, 2024)
+    data = as_season(openf1_data, 2026)
     for driver in data[Endpoint.DRIVERS]:  # como em 2026: country_code vazio
         driver["country_code"] = None
         if driver["name_acronym"] == "VER":
@@ -414,18 +415,18 @@ def test_season_header_is_a_hero_banner(monkeypatch, tmp_path, openf1_data):
         "f1.dashboard.views.season.hero_background",
         lambda: "data:image/svg+xml;base64,PHN2Zy8+",
     )
-    app = _season_app(monkeypatch, tmp_path, as_season(openf1_data, 2024))
+    app = _season_app(monkeypatch, tmp_path, as_season(openf1_data, 2026))
     hero = next(m.value for m in app.markdown if 'class="f1-hero"' in m.value)
     assert "background-image:" in hero and "data:image/svg+xml;base64," in hero
-    assert "Fórmula 1 · Temporada 2024" in hero
+    assert "Fórmula 1 · Temporada 2026" in hero
     assert "<strong>Carlos Sainz</strong> soma" in hero  # frase-resumo no banner
 
 
 def test_season_header_without_hero_file(monkeypatch, tmp_path, openf1_data):
     monkeypatch.setattr("f1.dashboard.views.season.hero_background", lambda: None)
-    app = _season_app(monkeypatch, tmp_path, as_season(openf1_data, 2024))
+    app = _season_app(monkeypatch, tmp_path, as_season(openf1_data, 2026))
 
     html = _html(app)
     assert 'class="f1-hero"' not in html
-    assert '<div class="f1-title">Fórmula 1 · Temporada 2024</div>' in html
+    assert '<div class="f1-title">Fórmula 1 · Temporada 2026</div>' in html
     assert "<strong>Carlos Sainz</strong> soma" in html

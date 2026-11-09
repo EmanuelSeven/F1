@@ -6,7 +6,7 @@ compartilhar o link. A interpretação dos filtros está em
 ``f1.processing.filters``.
 """
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from copy import copy
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -14,11 +14,18 @@ from enum import StrEnum
 from pathlib import Path
 
 import streamlit as st
+from streamlit.delta_generator import DeltaGenerator
 from streamlit.navigation.page import StreamlitPage
 
-from f1.dashboard.bootstrap import BOOTSTRAP_YEAR, FIRST_SEASON
-from f1.dashboard.views.data import ensure_season, lake_summary, season_data
-from f1.dashboard.views.formatting import KIND_LABELS
+from f1.dashboard.bootstrap import FIRST_SEASON
+from f1.dashboard.views.data import (
+    default_year,
+    ensure_season,
+    lake_summary,
+    refresh_bucket,
+    season_data,
+)
+from f1.dashboard.views.formatting import KIND_LABELS, format_brasilia
 from f1.domain.models import POINTS_KINDS, SessionKind
 from f1.processing.filters import (
     SeasonFilter,
@@ -34,6 +41,7 @@ KEY_TEAMS = "filter_teams"
 KEY_DRIVERS = "filter_drivers"
 KEY_KINDS_SAVED = "filter_kinds_saved"  # sobrevive a páginas sem o widget
 KEY_KINDS_LOCKED = "filter_kinds_locked"
+KEY_SEASON_LOCKED = "filter_season_locked"
 KEY_STATE = "dashboard_filters"
 QUERY_YEAR = "ano"
 KIND_ORDER: tuple[SessionKind, ...] = tuple(SessionKind)
@@ -87,10 +95,17 @@ _DETAIL_DEFAULTS: tuple[tuple[str, object], ...] = (
 )
 
 
+def _current_year() -> int:
+    return datetime.now(UTC).year
+
+
 @dataclass(frozen=True)
 class DashboardFilters:
-    year: int = BOOTSTRAP_YEAR
+    year: int = field(default_factory=_current_year)
     season: SeasonFilter = field(default_factory=SeasonFilter)
+    # Espaço do seletor de temporada em páginas que não usam o filtro: a
+    # página o preenche (ex.: com o ano da corrida exibida).
+    season_slot: DeltaGenerator | None = field(default=None, compare=False)
 
 
 def season_options(now: datetime) -> list[int]:
@@ -98,15 +113,22 @@ def season_options(now: datetime) -> list[int]:
     return list(range(now.year, FIRST_SEASON - 1, -1))
 
 
-def initial_year(options: Sequence[int], query_value: object) -> int:
-    """Ano inicial: o da URL (``?ano=``), se válido; senão ``BOOTSTRAP_YEAR``."""
+def initial_year(
+    options: Sequence[int], query_value: object, default: Callable[[], int]
+) -> int:
+    """Ano inicial: o da URL (``?ano=``), se válido; senão ``default()``.
+
+    ``default`` só é chamado sem ano válido na URL (a consulta é evitada). Um
+    padrão fora de ``options`` vira o ano mais recente da lista.
+    """
     try:
         year = int(str(query_value))
     except ValueError:
-        year = BOOTSTRAP_YEAR
+        year = 0
     if year in options:
         return year
-    return BOOTSTRAP_YEAR if BOOTSTRAP_YEAR in options else options[0]
+    fallback = default()
+    return fallback if fallback in options else options[0]
 
 
 def selected_kinds(values: Sequence[str]) -> tuple[SessionKind, ...]:
@@ -151,10 +173,21 @@ def _remember(key: str, value: object) -> None:
     st.session_state[_saved(key)] = copy(value)
 
 
-def _init_state(options: Sequence[int]) -> None:
+def _init_state(options: Sequence[int], data_dir: Path) -> None:
     state = st.session_state
     if KEY_SEASON not in state:
-        state[KEY_SEASON] = initial_year(options, st.query_params.get(QUERY_YEAR))
+        saved = state.get(_saved(KEY_SEASON))
+        state[KEY_SEASON] = (
+            saved
+            if saved in options
+            else initial_year(
+                options,
+                st.query_params.get(QUERY_YEAR),
+                lambda: default_year(
+                    data_dir, tuple(options), refresh_bucket(datetime.now(UTC))
+                ),
+            )
+        )
     if KEY_KINDS_SAVED not in state:
         state[KEY_KINDS_SAVED] = list(DEFAULT_KINDS)
     for key, empty in _DETAIL_DEFAULTS:
@@ -262,7 +295,7 @@ def render_sidebar_filters(
     Carrega a temporada escolhida se a página depender dela.
     """
     options = season_options(datetime.now(UTC))
-    _init_state(options)
+    _init_state(options, data_dir)
     with st.sidebar:
         st.markdown(BRAND_HTML, unsafe_allow_html=True)
         if pages:
@@ -270,19 +303,20 @@ def render_sidebar_filters(
         st.markdown(
             '<div class="f1-sidebar-title">Filtros</div>', unsafe_allow_html=True
         )
-        year = int(
-            st.selectbox(
-                "Temporada",
-                options,
-                key=KEY_SEASON,
-                disabled=not page.season,
-                help=None if page.season else page.season_note,
-            )
-        )
-        if not page.season and page.season_note:
-            st.caption(page.season_note)
+        slot: DeltaGenerator | None = None
+        if page.season:
+            year = int(st.selectbox("Temporada", options, key=KEY_SEASON))
+            _remember(KEY_SEASON, year)
+            st.query_params[QUERY_YEAR] = str(year)
+        else:
+            # O seletor sai da página (o ano escolhido fica guardado); a página
+            # preenche o espaço com o seu próprio ano (show_locked_season).
+            year = int(st.session_state[KEY_SEASON])
+            _remember(KEY_SEASON, year)
+            slot = st.empty()
+            if page.season_note:
+                st.caption(page.season_note)
         kinds = _kinds_filter(page)
-    st.query_params[QUERY_YEAR] = str(year)
 
     meeting_key: int | None = None
     teams: list[str] = []
@@ -301,14 +335,34 @@ def render_sidebar_filters(
             teams=tuple(teams),
             drivers=tuple(drivers),
         ),
+        season_slot=slot,
     )
     st.session_state[KEY_STATE] = filters
     return filters
+
+
+def show_locked_season(year: int, note: str | None = None) -> None:
+    """Preenche o seletor de temporada desabilitado com ``year``.
+
+    Usado por páginas que não seguem o filtro (ex.: "Última corrida", que
+    mostra o ano da corrida exibida).
+    """
+    slot = current_filters().season_slot
+    if slot is None:
+        return
+    slot.selectbox(
+        "Temporada",
+        [year],
+        index=0,
+        key=KEY_SEASON_LOCKED,
+        disabled=True,
+        help=note,
+    )
 
 
 def render_sidebar_footer(data_dir: Path) -> None:
     """Rodapé com a fonte e a data da última ingestão no lake."""
     summary = lake_summary(data_dir)
     run = summary.last_run
-    when = run.ingested_at.strftime("%d/%m/%Y %H:%M UTC") if run else "—"
+    when = format_brasilia(run.ingested_at if run else None)
     st.sidebar.caption(f"Dados: OpenF1 · última atualização {when}")

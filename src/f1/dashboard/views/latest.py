@@ -35,6 +35,7 @@ from f1.dashboard.views.formatting import (
     format_points,
     status_code,
 )
+from f1.dashboard.views.sidebar import LATEST_PAGE, show_locked_season
 from f1.dashboard.views.tables import TEAM_COLUMN, render_table, team_label
 from f1.dashboard.views.theme import kpi_card, podium_card, section
 from f1.domain.models import POINTS_KINDS
@@ -187,9 +188,12 @@ def render_latest() -> None:
     data_dir = get_settings().data_dir
     now = datetime.now(UTC)
     latest = find_latest_race(data_dir, now)
+    note = LATEST_PAGE.season_note
     if latest is None:
+        show_locked_season(now.year, note)
         st.info("Ainda não há corridas concluídas com resultados disponíveis.")
         return
+    show_locked_season(latest.year, note)
     if latest.pending_name:
         message = f"Resultados de {latest.pending_name} ainda não disponíveis"
         detail = (

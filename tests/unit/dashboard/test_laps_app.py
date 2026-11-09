@@ -35,7 +35,7 @@ def _laps_script() -> None:
 
 @pytest.fixture
 def stub(monkeypatch, openf1_data):
-    client = StubClient(as_season(openf1_data, 2024))
+    client = StubClient(as_season(openf1_data, 2026))
     monkeypatch.setattr(OpenF1Client, "from_settings", lambda _s: client)
     st.cache_resource.clear()
     st.cache_data.clear()
@@ -70,7 +70,7 @@ def test_laps_page_uses_editable_session_filter():
 
 def test_default_shows_latest_grand_prix(app, stub):
     html = _html(app)
-    assert "Fórmula 1 · voltas mais rápidas 2024" in html
+    assert "Fórmula 1 · voltas mais rápidas 2026" in html
     assert "Circuito Singapore · Singapore" in html
     assert "5 voltas mais rápidas em corrida e sprint" in html
     assert "Mostrando o Grande Prêmio mais recente" in " ".join(

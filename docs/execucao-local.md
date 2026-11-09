@@ -33,16 +33,16 @@ Copie `.env.example` para `.env` e ajuste se precisar. Todas usam o prefixo `F1_
 
 ```bash
 # Calendário (meetings + sessions) de um ano
-poetry run python -m f1 calendar --year 2024
+poetry run python -m f1 calendar --year 2026
 
 # Datasets de sessão de um meeting
-poetry run python -m f1 meeting --meeting-key 1229
+poetry run python -m f1 meeting --meeting-key 1299
 
 # Calendário + todos os meetings encerrados do ano
-poetry run python -m f1 season --year 2024
+poetry run python -m f1 season --year 2026
 
 # Apenas alguns datasets (nomes de endpoint ou de dataset silver)
-poetry run python -m f1 season --year 2024 --datasets laps,stints
+poetry run python -m f1 season --year 2026 --datasets laps,stints
 ```
 
 Reexecutar com os mesmos parâmetros sobrescreve as mesmas partições, sem duplicar registros.
@@ -51,9 +51,9 @@ Reexecutar com os mesmos parâmetros sobrescreve as mesmas partições, sem dupl
 
 ```text
 data/
-├── bronze/laps/season=2024/meeting_key=1229/session_key=9472.json
-├── silver/laps/season=2024/meeting_key=1229/part-00000.parquet
-└── quarantine/laps/season=2024/meeting_key=1229/part-00000.parquet   # se houver rejeitados
+├── bronze/laps/season=2026/meeting_key=1299/session_key=11412.json
+├── silver/laps/season=2026/meeting_key=1299/part-00000.parquet
+└── quarantine/laps/season=2026/meeting_key=1299/part-00000.parquet   # se houver rejeitados
 ```
 
 ```python
@@ -98,7 +98,7 @@ No topo ficam a marca **FORMULA 1 · Analytics** e os links das páginas. A seç
 
 | Filtro | Efeito |
 |---|---|
-| **Temporada** | 2023 até o ano atual (padrão 2024). Também fica na URL (`?ano=2024`), para compartilhar o link |
+| **Temporada** | De 2023 até o ano atual, do mais recente para o mais antigo. Padrão: o ano mais recente com ao menos uma corrida já concluída (consulta o lake e, se faltar, a OpenF1); se não for possível consultar, o ano atual. O ano também fica na URL (ex.: `?ano=2026`), que tem prioridade sobre o padrão e serve para compartilhar o link |
 | **Tipo de sessão** | Corrida, Sprint, Classificação, Treino livre (padrão: Corrida + Sprint). Aparece só nas páginas onde se aplica: hoje, a página **Voltas**. Nessas páginas, os pontos somam os tipos marcados, e os vencedores usam as corridas, se marcadas; senão, os tipos marcados (só Classificação mostra as poles). Na **Temporada** ele fica desabilitado, com uma explicação: a página considera sempre corridas e sprints. No **Data Lake** fica oculto. A escolha é preservada ao passar por páginas sem o filtro |
 | **Grande Prêmio** | "Todos" ou um GP do ano. Não filtra os números: destaca a linha na tabela de vencedores e abre os detalhes daquele GP |
 | **Equipe e piloto** | Restringe gráfico, tabela, KPIs e frase aos pilotos escolhidos. A lista de pilotos depende das equipes marcadas, e os dois filtros se combinam (E) |
@@ -108,11 +108,11 @@ Os filtros ficam em `st.session_state`, então continuam valendo ao trocar de p�
 
 Nas páginas que usam o filtro, marcar Classificação ou Treino livre baixa sob demanda os resultados dessas sessões, junto com os tipos já carregados.
 
-No rodapé aparece "Dados: OpenF1 · última atualização {data}", com a data da ingestão mais recente no lake.
+No rodapé aparece "Dados: OpenF1 · última atualização {data}", com a data da ingestão mais recente no lake, no horário de Brasília (ex.: "08/11/2026 20:13 (Brasília)").
 
 Um piloto que usou mais de um número no ano aparece uma única vez, com os pontos somados. Por exemplo, Oliver Bearman em 2024: #38 pela Ferrari e #50 pela Haas.
 
-Cada página mostra só os filtros que usa. Na **Última corrida**, o seletor de temporada aparece desabilitado, com uma explicação, e os demais filtros ficam ocultos. Os valores escolhidos continuam guardados ao trocar de página.
+Cada página mostra só os filtros que usa. Na **Última corrida**, o seletor de temporada aparece desabilitado, com o ano da corrida exibida e uma explicação, e os demais filtros ficam ocultos. Os valores escolhidos continuam guardados ao trocar de página.
 
 ### Última corrida (página inicial)
 
@@ -131,7 +131,7 @@ A **largada** vem do dataset `starting_grid`, baixado sob demanda por GP. A Open
 ### Temporada
 
 1. **Cabeçalho:** "Fórmula 1 · Temporada {ano}" (o ano vem da barra lateral). A data da última atualização dos dados aparece no rodapé da barra lateral. O título e a frase-resumo ficam num banner, em texto branco e alinhados à esquerda, com a arte `src/f1/dashboard/assets/hero_red.svg` embutida em base64 via CSS (`background-size: cover`, `background-position: right center`). Em telas estreitas a altura diminui sem cortar o texto. Sem o arquivo, aparece o cabeçalho normal.
-2. **Frase-resumo** gerada dos dados, por exemplo: "**Max Verstappen** soma **437** pontos; **7** pilotos diferentes venceram as **24** corridas." Com a **temporada em andamento** (há corridas futuras no calendário), ela vira "**{líder}** lidera com **{pts}** pontos após **{feitas}** de **{total}** corridas; **{n}** pilotos diferentes venceram."
+2. **Frase-resumo** gerada dos dados. Com a temporada encerrada: "**{líder}** soma **{pts}** pontos; **{n}** pilotos diferentes venceram as **{total}** corridas." Com a **temporada em andamento** (há corridas futuras no calendário): "**{líder}** lidera com **{pts}** pontos após **{feitas}** de **{total}** corridas; **{n}** pilotos diferentes venceram." Por exemplo, em 2026, depois da 20ª rodada: "**Kimi Antonelli** lidera com **390** pontos após **20** de **23** corridas; **6** pilotos diferentes venceram."
 3. **Quatro KPIs:** corridas, sprints, vencedores diferentes (só corridas) e pontos do líder (corridas + sprints). Com a temporada em andamento, o cartão *Corridas* mostra "{feitas}/{total}" e a legenda "Realizadas / previstas".
 4. **Temporada:** à esquerda, *Pontos por piloto* (barras na cor da equipe; o tooltip mostra vitórias e pódios). O gráfico considera só corridas e sprints e esconde pilotos com 0 pontos; o botão "Mostrar pilotos sem pontos" (desligado por padrão) mostra todos. À direita, *Vencedores por corrida* (rodada, GP, data, vencedor, nacionalidade e equipe). Os pontos vêm de `session_results.points`, que já traz a pontuação oficial de cada temporada (incluindo o ponto extra da volta mais rápida, que valeu até 2024).
 5. **Clique em uma corrida** da tabela para ver os detalhes em abas: resultado final, tempos de volta (escolha de pilotos e opção de ocultar voltas lentas), estratégia de pneus, pit stops e clima.

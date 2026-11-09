@@ -18,8 +18,8 @@ Datasets do núcleo da corrida: `meetings`, `sessions`, `drivers`, `session_resu
 
     ```bash
     poetry install
-    poetry run python -m f1 calendar --year 2024
-    poetry run python -m f1 meeting --meeting-key 1229
+    poetry run python -m f1 calendar --year 2026
+    poetry run python -m f1 meeting --meeting-key 1299
     ```
 
 === "Dashboard"

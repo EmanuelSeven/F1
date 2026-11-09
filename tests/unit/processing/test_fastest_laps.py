@@ -15,7 +15,7 @@ from f1.processing.normalize import normalize
 from tests.conftest import load_fixture
 
 QUALI, RACE = 9161, 9165
-AFTER = datetime(2024, 1, 1, tzinfo=UTC)
+AFTER = datetime(2026, 1, 1, tzinfo=UTC)
 
 
 @pytest.fixture

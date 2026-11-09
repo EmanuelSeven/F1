@@ -60,7 +60,7 @@ def test_format_status_seconds_dates_and_temperature():
     assert format_status(False, False, False) == ""
     assert format_seconds(2.43) == "2,4"
     assert format_seconds(pd.NA) == "—"
-    assert format_day_month(datetime(2024, 3, 2, tzinfo=UTC)) == "02/03"
+    assert format_day_month(datetime(2026, 3, 2, tzinfo=UTC)) == "02/03"
     assert format_day_month(None) == "—"
     assert format_temperature(23.66) == "23,7 °C"
     assert format_temperature(None) == "—"

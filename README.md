@@ -9,9 +9,9 @@ Datasets: `meetings`, `sessions`, `drivers`, `session_results`, `laps`, `stints`
 ```bash
 poetry env use 3.13
 poetry install
-poetry run python -m f1 calendar --year 2024
-poetry run python -m f1 meeting --meeting-key 1229
-poetry run python -m f1 season --year 2024 --datasets laps,stints
+poetry run python -m f1 calendar --year 2026
+poetry run python -m f1 meeting --meeting-key 1299
+poetry run python -m f1 season --year 2026 --datasets laps,stints
 ```
 
 Os dados ficam em `data/silver/<dataset>/season=YYYY[/meeting_key=N]/part-00000.parquet`.
@@ -28,7 +28,7 @@ Painel analítico em tema escuro. A barra lateral, comum às páginas, tem a nav
 
 - **Última corrida** (inicial): a corrida concluída mais recente, com cabeçalho, pódio, destaques, classificação com largada e posições ganhas, e o top 5 do campeonato.
 - **Temporada**:
-  - título com o ano escolhido na barra lateral (padrão 2024) e frase-resumo;
+  - título com o ano escolhido na barra lateral (padrão: a temporada mais recente com corrida concluída) e frase-resumo;
   - KPIs de corridas, sprints, vencedores e pontos do líder;
   - pontos por piloto e vencedores por corrida;
   - ao clicar numa corrida: resultado, tempos de volta, pneus, pit stops e clima.

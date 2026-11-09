@@ -3,6 +3,7 @@
 import math
 import re
 from datetime import datetime
+from zoneinfo import ZoneInfo
 
 import pandas as pd
 
@@ -281,3 +282,13 @@ def status_code(dnf: object, dns: object, dsq: object) -> str:
     if dnf is True:
         return "DNF"
     return ""
+
+
+BRASILIA = ZoneInfo("America/Sao_Paulo")
+
+
+def format_brasilia(value: datetime | None) -> str:
+    """``2026-11-08 23:13 UTC`` → ``"08/11/2026 20:13 (Brasília)"``."""
+    if value is None:
+        return "—"
+    return value.astimezone(BRASILIA).strftime("%d/%m/%Y %H:%M") + " (Brasília)"

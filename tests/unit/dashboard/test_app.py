@@ -64,15 +64,15 @@ def _html(app: AppTest) -> str:
 # --- página Temporada ------------------------------------------------------
 
 
-def test_season_page_is_default_and_loads_2024(data_env, tmp_path, client, openf1_data):
-    stub = StubClient(as_season(openf1_data, 2024))
+def test_season_page_is_default_and_loads_2026(data_env, tmp_path, client, openf1_data):
+    stub = StubClient(as_season(openf1_data, 2026))
     client["client"] = stub
 
     app = _dashboard(data_env, tmp_path / "lake")
 
     assert not app.exception
     html = _html(app)
-    assert "Fórmula 1 · Temporada 2024" in html
+    assert "Fórmula 1 · Temporada 2026" in html
     assert "<strong>Carlos Sainz</strong> soma <strong>25</strong> pontos" in html
     assert html.count('class="kpi-card"') == 4
     for caption in (
@@ -82,7 +82,7 @@ def test_season_page_is_default_and_loads_2024(data_env, tmp_path, client, openf
         "Corridas + sprints",
     ):
         assert caption in html
-    assert app.selectbox(key="filter_season").value == 2024
+    assert app.selectbox(key="filter_season").value == 2026
     assert any('setAttribute("translate", "no")' in h.value for h in app.html)
     winners = app.dataframe[0].value
     assert winners["Vencedor"].tolist() == ["SAI"]
@@ -97,16 +97,21 @@ def test_season_page_is_default_and_loads_2024(data_env, tmp_path, client, openf
     assert len(stub.calls) == calls
 
 
-def test_selecting_another_season_loads_it(data_env, tmp_path, client, openf1_data):
-    client["client"] = StubClient(openf1_data)  # fixtures são de 2023
+def test_default_season_is_latest_with_a_completed_race(
+    data_env, tmp_path, client, openf1_data
+):
+    """Fixtures só têm corrida em 2023: esse é o ano padrão (sem ?ano=)."""
+    client["client"] = StubClient(openf1_data)
     app = _dashboard(data_env, tmp_path / "lake")
-    assert "Ainda não há resultados de corridas para 2024" in app.info[0].value
 
-    app.selectbox(key="filter_season").set_value(2023).run()
-
-    assert not app.exception
+    assert app.selectbox(key="filter_season").value == 2023
     assert "Fórmula 1 · Temporada 2023" in _html(app)
     assert app.dataframe[0].value["GP"].tolist() == ["Singapore"]
+
+    app.selectbox(key="filter_season").set_value(2026).run()
+
+    assert not app.exception
+    assert "Ainda não há resultados de corridas para 2026" in app.info[0].value
 
 
 def test_access_error_shows_friendly_message_and_retries(
@@ -118,7 +123,7 @@ def test_access_error_shows_friendly_message_and_retries(
     assert "temporariamente indisponível" in app.warning[0].value
     assert "Ainda não há resultados" in app.info[0].value
 
-    client["client"] = StubClient(as_season(openf1_data, 2024))
+    client["client"] = StubClient(as_season(openf1_data, 2026))
     app.run()  # a falha não ficou em cache
     assert not app.warning
     assert app.dataframe

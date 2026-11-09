@@ -26,8 +26,8 @@ def _age(path: Path, seconds: float) -> None:
 
 
 def test_concurrent_writes_to_same_partition_do_not_collide(tmp_path):
-    """Regressão: FileExistsError em '_season=2024.staging' com gravações paralelas."""
-    target = tmp_path / "meetings" / "season=2024"
+    """Regressão: FileExistsError em '_season=2026.staging' com gravações paralelas."""
+    target = tmp_path / "meetings" / "season=2026"
     frames = [pd.DataFrame({"writer": [n] * 50}) for n in range(WRITERS)]
 
     with ThreadPoolExecutor(max_workers=WRITERS) as pool:
@@ -50,11 +50,11 @@ def test_concurrent_bronze_writes_do_not_collide(tmp_path):
 
 
 def test_write_removes_stale_legacy_staging(tmp_path):
-    target = tmp_path / "meetings" / "season=2024"
-    stale = target.with_name("_season=2024.staging")  # formato antigo, órfão
+    target = tmp_path / "meetings" / "season=2026"
+    stale = target.with_name("_season=2026.staging")  # formato antigo, órfão
     stale.mkdir(parents=True)
     _age(stale, atomic.STALE_AFTER_SECONDS + 60)
-    recent = target.with_name("_season=2024.abcd1234.staging")  # em uso por outro
+    recent = target.with_name("_season=2026.abcd1234.staging")  # em uso por outro
     recent.mkdir()
 
     write_partition(pd.DataFrame({"a": [1]}), target)
@@ -65,11 +65,11 @@ def test_write_removes_stale_legacy_staging(tmp_path):
 
 
 def test_remove_stale_temps_ignores_other_entries(tmp_path):
-    target = tmp_path / "season=2024"
+    target = tmp_path / "season=2026"
     other = tmp_path / "_season=2023.staging"
     other.mkdir()
     _age(other, 10_000)
-    temp_file = tmp_path / "_season=2024.x.tmp"
+    temp_file = tmp_path / "_season=2026.x.tmp"
     temp_file.write_text("x", encoding="utf-8")
     _age(temp_file, 10_000)
 

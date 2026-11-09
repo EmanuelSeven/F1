@@ -133,8 +133,9 @@ def test_sidebar_navigation_above_filters(monkeypatch, lake, openf1_data):
 
     links = [p.label for p in app.sidebar.get("page_link")]
     assert links == ["Última corrida", "Temporada", "Voltas", "Data Lake"]
-    season = app.selectbox(key="filter_season")
+    season = app.selectbox(key="filter_season_locked")
     assert season.disabled
+    assert season.value == YEAR  # ano da corrida exibida, não o do filtro
     assert "Não se aplica a esta página" in app.sidebar.caption[0].value
     assert [s.label for s in app.sidebar.selectbox] == ["Temporada"]  # sem GP
     assert any('setAttribute("translate", "no")' in h.value for h in app.html)

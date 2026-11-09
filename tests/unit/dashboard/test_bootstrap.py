@@ -4,7 +4,6 @@ import pytest
 
 from f1.config.settings import Settings
 from f1.dashboard.bootstrap import (
-    BOOTSTRAP_YEAR,
     run_meeting_laps,
     run_race_details,
     run_season_bootstrap,
@@ -21,7 +20,7 @@ from f1.domain.models import MeetingRef, SessionKind
 from f1.ingestion.openf1_client import OpenF1AccessError
 from tests.unit.dashboard.conftest import DeniedClient, StubClient, as_season
 
-AFTER_SEASON = datetime(2024, 1, 1, tzinfo=UTC)
+AFTER_SEASON = datetime(2026, 1, 1, tzinfo=UTC)
 
 
 @pytest.fixture
@@ -63,18 +62,19 @@ def test_season_bootstrap_skips_sessions_not_finished(settings, openf1_data):
     assert not season_is_loaded(settings.data_dir, 2023)
 
 
-def test_season_bootstrap_defaults_to_2024(settings, openf1_data):
-    stub = StubClient(as_season(openf1_data, 2024))
-    result = run_season_bootstrap(settings, source_factory=lambda _: stub)
+def test_season_bootstrap_loads_the_given_year(settings, openf1_data):
+    """Sem ano fixo: a temporada é sempre informada por quem chama."""
+    stub = StubClient(as_season(openf1_data, 2026))
+    result = run_season_bootstrap(settings, 2026, source_factory=lambda _: stub)
 
-    assert result.year == BOOTSTRAP_YEAR == 2024
-    assert season_is_loaded(settings.data_dir, 2024)
+    assert result.year == 2026
+    assert season_is_loaded(settings.data_dir, 2026)
 
 
 def test_season_bootstrap_propagates_access_error(settings):
     with pytest.raises(OpenF1AccessError):
-        run_season_bootstrap(settings, source_factory=lambda _: DeniedClient({}))
-    assert not season_is_loaded(settings.data_dir, BOOTSTRAP_YEAR)
+        run_season_bootstrap(settings, 2026, source_factory=lambda _: DeniedClient({}))
+    assert not season_is_loaded(settings.data_dir, 2026)
 
 
 def test_race_details_loads_only_the_main_race(settings, openf1_data):

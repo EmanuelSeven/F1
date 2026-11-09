@@ -1,12 +1,11 @@
 """Página "Data Lake": estado das camadas bronze, silver e quarentena."""
 
-from datetime import datetime
+from datetime import UTC, datetime
 
 import streamlit as st
 
 from f1 import __version__
 from f1.config.settings import get_settings
-from f1.dashboard.bootstrap import BOOTSTRAP_YEAR
 from f1.dashboard.loaders import (
     PlatformSummary,
     datasets_table,
@@ -58,8 +57,8 @@ def render_lake() -> None:
     if is_lake_empty(data_dir):
         st.info(
             f"Nenhum dado encontrado em `{data_dir}`. Abra a página **Temporada** "
-            f"para carregar {BOOTSTRAP_YEAR} automaticamente, ou execute "
-            f"`poetry run python -m f1 calendar --year {BOOTSTRAP_YEAR}`."
+            "para carregar a temporada automaticamente, ou execute "
+            f"`poetry run python -m f1 calendar --year {datetime.now(UTC).year}`."
         )
     render_metrics(summary)
     render_layers(summary)

@@ -421,7 +421,7 @@ def _with_future_race(season):
 def test_race_schedule_counts_scheduled_and_upcoming(season):
     data = _with_future_race(season)
     before_finale = datetime(2023, 11, 1, tzinfo=UTC)
-    after_finale = datetime(2024, 1, 1, tzinfo=UTC)
+    after_finale = datetime(2026, 1, 1, tzinfo=UTC)
 
     assert race_schedule(data["sessions"], before_finale) == RaceSchedule(2, 1)
     assert race_schedule(data["sessions"], after_finale) == RaceSchedule(2, 0)
@@ -436,18 +436,18 @@ def test_view_marks_season_in_progress(season):
     assert live.kpis.in_progress
     assert (live.kpis.races, live.kpis.scheduled_races) == (1, 2)
 
-    done = season_view(*args, SeasonFilter(), now=datetime(2024, 1, 1, tzinfo=UTC))
+    done = season_view(*args, SeasonFilter(), now=datetime(2026, 1, 1, tzinfo=UTC))
     assert not done.kpis.in_progress
 
 
 def test_finished_kinds_only_counts_sessions_already_held(season):
     from f1.processing.standings import finished_kinds  # noqa: PLC0415
 
-    after = finished_kinds(season["sessions"], datetime(2024, 1, 1, tzinfo=UTC))
+    after = finished_kinds(season["sessions"], datetime(2026, 1, 1, tzinfo=UTC))
     assert after == {SessionKind.RACE, SessionKind.SPRINT, SessionKind.QUALIFYING}
     before = finished_kinds(season["sessions"], datetime(2023, 9, 16, 12, tzinfo=UTC))
     assert before == {SessionKind.SPRINT}  # só a sprint (08:00) já tinha acontecido
     sprintless = season["sessions"].loc[season["sessions"]["session_name"] != "Sprint"]
     assert SessionKind.SPRINT not in finished_kinds(
-        sprintless, datetime(2024, 1, 1, tzinfo=UTC)
+        sprintless, datetime(2026, 1, 1, tzinfo=UTC)
     )

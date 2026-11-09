@@ -8,6 +8,7 @@ import pytest
 from f1.dashboard.views.formatting import (
     change_style,
     events_noun,
+    format_brasilia,
     format_change,
     format_finish,
     format_gap_laps,
@@ -156,13 +157,31 @@ def test_session_label_and_nouns():
 # --- barra lateral --------------------------------------------------------
 
 
-def test_season_options_and_initial_year():
+def test_season_options_from_first_to_current_year_descending():
     assert OPTIONS == [2026, 2025, 2024, 2023]
-    assert initial_year(OPTIONS, "2023") == 2023
-    assert initial_year(OPTIONS, None) == 2024
-    assert initial_year(OPTIONS, "abc") == 2024
-    assert initial_year(OPTIONS, "1999") == 2024
-    assert initial_year([2023], None) == 2023
+    assert season_options(datetime(2027, 3, 10, tzinfo=UTC))[:2] == [2027, 2026]
+
+
+def test_url_year_has_priority_over_default():
+    calls: list[int] = []
+
+    def default() -> int:
+        calls.append(1)
+        return 2026
+
+    assert initial_year(OPTIONS, "2023", default) == 2023
+    assert calls == []  # com ?ano= válido, o padrão nem é consultado
+    assert initial_year(OPTIONS, None, default) == 2026
+    assert initial_year(OPTIONS, "abc", default) == 2026
+    assert initial_year(OPTIONS, "1999", default) == 2026  # fora da lista
+    assert initial_year(OPTIONS, None, lambda: 1999) == 2026  # padrão inválido
+    assert initial_year([2023], None, lambda: 2026) == 2023
+
+
+def test_footer_time_in_brasilia():
+    moment = datetime(2026, 11, 8, 23, 13, tzinfo=UTC)
+    assert format_brasilia(moment) == "08/11/2026 20:13 (Brasília)"
+    assert format_brasilia(None) == "—"
 
 
 def test_selected_kinds_canonical_order():
@@ -179,7 +198,7 @@ def _winners() -> pd.DataFrame:
             "round": [1, 1],
             "gp": ["Bahrain", "Bahrain"],
             "session_name": ["Sprint", "Qualifying"],
-            "date_start": [datetime(2024, 3, 1, tzinfo=UTC)] * 2,
+            "date_start": [datetime(2026, 3, 1, tzinfo=UTC)] * 2,
             "acronym": ["VER", "LEC"],
             "team": ["Red Bull Racing", "Ferrari"],
             "country": ["nl", None],
@@ -215,10 +234,10 @@ def test_table_styles_colour_team_and_highlight_row():
 
 
 def test_selection_key_changes_with_filters():
-    base = selection_key(2024, SeasonFilter())
-    assert base != selection_key(2024, SeasonFilter(teams=("Red Bull Racing",)))
-    assert base != selection_key(2024, SeasonFilter(kinds=(Q,)))
-    assert base == selection_key(2024, SeasonFilter(meeting_key=1229))  # só destaca
+    base = selection_key(2026, SeasonFilter())
+    assert base != selection_key(2026, SeasonFilter(teams=("Red Bull Racing",)))
+    assert base != selection_key(2026, SeasonFilter(kinds=(Q,)))
+    assert base == selection_key(2026, SeasonFilter(meeting_key=1229))  # só destaca
 
 
 # --- temporada em andamento ---------------------------------------------

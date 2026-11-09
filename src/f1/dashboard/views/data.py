@@ -16,6 +16,7 @@ import streamlit as st
 from f1.config.settings import get_settings
 from f1.dashboard.bootstrap import (
     BootstrapResult,
+    SourceFactory,
     run_grid,
     run_meeting_laps,
     run_race_details,
@@ -33,8 +34,14 @@ from f1.dashboard.loaders import (
     season_is_loaded,
 )
 from f1.domain.endpoints import Endpoint
-from f1.domain.models import MeetingRef, SessionKind
-from f1.ingestion.openf1_client import OpenF1AccessError, OpenF1Error
+from f1.domain.models import Filter, MeetingRef, SessionKind
+from f1.ingestion.openf1_client import (
+    OpenF1AccessError,
+    OpenF1Client,
+    OpenF1Error,
+)
+from f1.processing.last_race import default_season, has_completed_race
+from f1.processing.normalize import normalize
 from f1.processing.standings import finished_kinds, result_kinds
 from f1.quality.validation import DataQualityError
 
@@ -230,3 +237,37 @@ def bootstrap_grid(
 def ensure_grid(data_dir: Path, year: int, meeting_key: int, now: datetime) -> None:
     if grid_data(data_dir, year, meeting_key).empty:
         try_load(bootstrap_grid, data_dir, year, meeting_key, refresh_bucket(now))
+
+
+def season_has_completed_race(
+    data_dir: Path,
+    year: int,
+    now: datetime,
+    source_factory: SourceFactory | None = None,
+) -> bool:
+    """``year`` tem corrida concluída? Usa o lake ou, se faltar, a API.
+
+    Na API é uma requisição leve (só as sessões ``Race`` do ano).
+
+    Raises:
+        OpenF1Error: a API não pôde ser consultada.
+    """
+    sessions = read_dataset(data_dir, Endpoint.SESSIONS, year)
+    if sessions.empty:
+        factory = source_factory or OpenF1Client.from_settings
+        with factory(get_settings()) as source:
+            records = source.fetch(
+                Endpoint.SESSIONS,
+                [Filter("year", year), Filter("session_name", "Race")],
+            )
+        sessions = normalize(Endpoint.SESSIONS, records)
+    return has_completed_race(sessions, now)
+
+
+@st.cache_data(ttl=LATEST_TTL_SECONDS, show_spinner=False)
+def default_year(data_dir: Path, years: tuple[int, ...], bucket: int) -> int:
+    """Ano padrão do filtro "Temporada" (em cache por janela de 10 min)."""
+    now = datetime.now(UTC)
+    return default_season(
+        years, lambda year: season_has_completed_race(data_dir, year, now)
+    )

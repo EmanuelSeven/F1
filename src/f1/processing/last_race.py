@@ -5,6 +5,7 @@ Funções puras sobre os datasets silver. "Concluída" = corrida principal com
 resultados (quando a última ainda não tem, a anterior é exibida).
 """
 
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 
@@ -176,3 +177,21 @@ def championship_after(
     table["change"] = (table["previous"] - table["position"]).astype("Int64")
     columns = ["position", "acronym", "name", "team", "colour", "points"]
     return table[[*columns, "previous", "change"]].reset_index(drop=True)
+
+
+def has_completed_race(sessions: pd.DataFrame, now: datetime) -> bool:
+    """O calendário tem ao menos uma corrida principal já concluída."""
+    return not completed_races(sessions, now).empty
+
+
+def default_season(years: Sequence[int], has_completed: Callable[[int], bool]) -> int:
+    """Ano padrão: o mais recente de ``years`` com corrida já concluída.
+
+    ``years`` vem do mais recente para o mais antigo; ``years[0]`` é o ano
+    atual, usado se nenhum ano tiver corrida concluída ou se a consulta falhar
+    (``has_completed`` lançar exceção).
+    """
+    try:
+        return next((year for year in years if has_completed(year)), years[0])
+    except Exception:
+        return years[0]
