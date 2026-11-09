@@ -35,9 +35,8 @@ def test_normalize_empty_payload_keeps_typed_columns(endpoint):
 
 
 def test_normalize_drops_deprecated_fields():
-    assert "country_code" not in normalize(
-        Endpoint.DRIVERS, load_fixture(Endpoint.DRIVERS)
-    )
+    drivers = normalize(Endpoint.DRIVERS, load_fixture(Endpoint.DRIVERS))
+    assert drivers["country_code"].tolist()[:2] == ["NED", "ESP"]  # p/ bandeira
     assert "pit_duration" not in normalize(Endpoint.PIT, load_fixture(Endpoint.PIT))
 
 

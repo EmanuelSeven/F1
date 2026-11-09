@@ -1,7 +1,7 @@
 """Pipeline de meeting: datasets de sessão de um fim de semana de GP."""
 
 import logging
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 
 from f1.domain.endpoints import SESSION_ENDPOINTS, Endpoint
 from f1.domain.models import Filter, MeetingRef, Partition, Record, SessionRef
@@ -29,21 +29,27 @@ def fetch_sessions(source: OpenF1Source, meeting_key: int) -> list[SessionRef]:
     return [s for s in sessions if not s.is_cancelled]
 
 
-def run_meeting(
+def run_meeting(  # noqa: PLR0913 - dependências injetadas explicitamente
     source: OpenF1Source,
     stores: LakeStores,
     ctx: RunContext,
     meeting: MeetingRef,
     endpoints: Sequence[Endpoint] = SESSION_ENDPOINTS,
+    *,
+    session_filter: Callable[[SessionRef], bool] | None = None,
 ) -> list[PipelineMetrics]:
     """Carrega os datasets de sessão de um meeting (overwrite por partição).
 
     Bronze recebe um arquivo por sessão; silver, um arquivo por meeting.
+    ``session_filter`` restringe as sessões (ex.: só a corrida principal); a
+    partição silver passa a conter apenas as sessões selecionadas.
     """
     invalid = [e for e in endpoints if e not in SESSION_ENDPOINTS]
     if invalid:
         raise ValueError(f"not session-level datasets: {invalid}")
     sessions = fetch_sessions(source, meeting.meeting_key)
+    if session_filter is not None:
+        sessions = [s for s in sessions if session_filter(s)]
     partition = Partition(season=meeting.year, meeting_key=meeting.meeting_key)
     logger.info(
         "meeting_started",

@@ -15,6 +15,7 @@ class Endpoint(StrEnum):
     STINTS = "stints"
     PIT = "pit"
     WEATHER = "weather"
+    STARTING_GRID = "starting_grid"
 
 
 class PartitionLevel(StrEnum):
@@ -28,12 +29,20 @@ class DatasetSpec:
     dataset: str
     business_key: tuple[str, ...]
     partition_level: PartitionLevel
+    # Buscado por sessão (padrão) ou uma vez por meeting (ex.: grade de
+    # largada, que a OpenF1 associa à sessão de classificação).
+    per_session: bool = True
 
 
 def _spec(
-    endpoint: Endpoint, dataset: str, key: tuple[str, ...], level: PartitionLevel
+    endpoint: Endpoint,
+    dataset: str,
+    key: tuple[str, ...],
+    level: PartitionLevel,
+    *,
+    per_session: bool = True,
 ) -> tuple[Endpoint, DatasetSpec]:
-    return endpoint, DatasetSpec(endpoint, dataset, key, level)
+    return endpoint, DatasetSpec(endpoint, dataset, key, level, per_session)
 
 
 _SESSION_KEY = ("session_key", "driver_number")
@@ -78,6 +87,13 @@ DATASET_SPECS: Mapping[Endpoint, DatasetSpec] = MappingProxyType(
                 ("session_key", "date"),
                 PartitionLevel.MEETING,
             ),
+            _spec(
+                Endpoint.STARTING_GRID,
+                "starting_grid",
+                ("session_key", "driver_number"),
+                PartitionLevel.MEETING,
+                per_session=False,
+            ),
         ]
     )
 )
@@ -86,7 +102,14 @@ CALENDAR_ENDPOINTS: tuple[Endpoint, ...] = tuple(
     e for e, s in DATASET_SPECS.items() if s.partition_level is PartitionLevel.SEASON
 )
 SESSION_ENDPOINTS: tuple[Endpoint, ...] = tuple(
-    e for e, s in DATASET_SPECS.items() if s.partition_level is PartitionLevel.MEETING
+    e
+    for e, s in DATASET_SPECS.items()
+    if s.partition_level is PartitionLevel.MEETING and s.per_session
+)
+MEETING_ENDPOINTS: tuple[Endpoint, ...] = tuple(
+    e
+    for e, s in DATASET_SPECS.items()
+    if s.partition_level is PartitionLevel.MEETING and not s.per_session
 )
 
 

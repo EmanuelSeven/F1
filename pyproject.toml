@@ -12,7 +12,8 @@ dependencies = [
     "pandas (>=2.2,<3.0)",
     "pyarrow (>=18.0,<30.0)",
     "pandera (>=0.24,<1.0)",
-    "pydantic-settings (>=2.6,<3.0)"
+    "pydantic-settings (>=2.6,<3.0)",
+    "babel (>=2.14,<3.0)"
 ]
 
 [tool.poetry]
@@ -35,7 +36,8 @@ dev = [
     "pre-commit (>=4.0,<6.0)",
     "pandas-stubs (>=2.2,<3.0)",
     "taskipy (>=1.14,<2.0)",
-    "streamlit (>=1.67.0,<2.0.0)"
+    "streamlit (>=1.67.0,<2.0.0)",
+    "plotly (>=6.0,<7.0)"
 ]
 docs = [
     "mkdocs (>=1.6,<2.0)",
@@ -104,6 +106,11 @@ plugins = ["pydantic.mypy"]
 # pyarrow não publica type hints; liberado somente este módulo.
 [[tool.mypy.overrides]]
 module = ["pyarrow.*"]
+ignore_missing_imports = true
+
+# plotly não publica type hints (sem py.typed); liberado somente este módulo.
+[[tool.mypy.overrides]]
+module = ["plotly.*"]
 ignore_missing_imports = true
 
 [tool.pytest.ini_options]

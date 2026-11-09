@@ -1,24 +1,26 @@
 """Camada bronze: JSON bruto exatamente como retornado pela API."""
 
 import json
-import os
 from collections.abc import Sequence
 from pathlib import Path
 
 from f1.domain.endpoints import Endpoint
 from f1.domain.models import Partition, Record
+from f1.storage.atomic import path_lock, remove_stale_temps, replace_file, temp_sibling
 from f1.storage.paths import partition_path
 
 
 def write_json_atomic(path: Path, records: Sequence[Record]) -> Path:
-    """Grava ``records`` em ``path`` via arquivo temporário + rename."""
+    """Grava ``records`` em ``path`` via arquivo temporário exclusivo + rename."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_name(f"_{path.name}.tmp")
+    tmp = temp_sibling(path, ".tmp")
     tmp.write_text(
         json.dumps(list(records), ensure_ascii=False, sort_keys=True),
         encoding="utf-8",
     )
-    os.replace(tmp, path)
+    with path_lock(path):
+        replace_file(tmp, path)
+        remove_stale_temps(path)
     return path
 
 

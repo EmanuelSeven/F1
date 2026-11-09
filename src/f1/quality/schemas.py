@@ -10,6 +10,7 @@ from f1.domain.endpoints import Endpoint, spec_for
 COMPOUNDS = ("SOFT", "MEDIUM", "HARD", "INTERMEDIATE", "WET", "UNKNOWN", "TEST_UNKNOWN")
 HEX_COLOUR = r"^[0-9A-Fa-f]{6}$"
 DATETIME = "datetime64[ns, UTC]"
+MAX_PIT_LANE_SECONDS = 4 * 60 * 60  # 14.400 s
 
 
 def _int(*checks: pa.Check) -> pa.Column:
@@ -119,6 +120,7 @@ SCHEMAS: Mapping[Endpoint, pa.DataFrameSchema] = MappingProxyType(
                 "team_name": _opt("string"),
                 "team_colour": _opt("string", pa.Check.str_matches(HEX_COLOUR)),
                 "headshot_url": _opt("string"),
+                "country_code": _opt("string", pa.Check.str_length(3, 3)),
             },
         ),
         Endpoint.SESSION_RESULT: _schema(
@@ -127,6 +129,7 @@ SCHEMAS: Mapping[Endpoint, pa.DataFrameSchema] = MappingProxyType(
                 **_session_keys(),
                 "position": _opt("Int64", _range(1, 30)),
                 "number_of_laps": _opt("Int64", pa.Check.ge(0)),
+                "points": _opt("Float64", _range(0, 50)),
                 "duration": _opt("Float64", _range(0, 20_000, include_min=False)),
                 "gap_to_leader": _opt("string"),
                 "dnf": _opt("boolean"),
@@ -171,8 +174,21 @@ SCHEMAS: Mapping[Endpoint, pa.DataFrameSchema] = MappingProxyType(
                 **_session_keys(),
                 "lap_number": _int(_range(1, 100)),
                 "date": _req(DATETIME),
-                "lane_duration": _opt("Float64", _range(0, 600, include_min=False)),
+                # Inclui o tempo parado no pit lane durante bandeira vermelha
+                # (ex.: México 2026, ~37 min). Teto de 4 h: nenhuma permanência
+                # no pit lane dura mais que a própria corrida.
+                "lane_duration": _opt(
+                    "Float64", _range(0, MAX_PIT_LANE_SECONDS, include_min=False)
+                ),
                 "stop_duration": _opt("Float64", _range(0, 120, include_min=False)),
+            },
+        ),
+        Endpoint.STARTING_GRID: _schema(
+            Endpoint.STARTING_GRID,
+            {
+                **_session_keys(),
+                "position": _opt("Int64", _range(1, 30)),
+                "lap_duration": _opt("Float64", _range(0, 600, include_min=False)),
             },
         ),
         Endpoint.WEATHER: _schema(

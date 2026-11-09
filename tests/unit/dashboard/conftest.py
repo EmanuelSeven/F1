@@ -3,6 +3,7 @@ from pathlib import Path
 import pytest
 
 from f1.domain.endpoints import Endpoint
+from f1.ingestion.openf1_client import OpenF1AccessError, OpenF1Error
 from f1.pipelines.calendar import run_calendar
 from f1.pipelines.common import LakeStores, RunContext
 from f1.pipelines.meeting import fetch_meeting, run_meeting
@@ -33,3 +34,63 @@ def populated_lake(tmp_path, openf1_data) -> Path:
     ctx = RunContext("run-2", max_rejection_rate=0.5)
     run_meeting(source, stores, ctx, fetch_meeting(source, 1219))
     return data_dir
+
+
+class StubClient(FakeOpenF1Source):
+    """Fonte falsa usável como context manager (como o OpenF1Client)."""
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc):
+        return None
+
+
+class DeniedClient(StubClient):
+    def fetch(self, endpoint, filters=()):
+        raise OpenF1AccessError("Live F1 session in progress")
+
+
+class FailingClient(StubClient):
+    def fetch(self, endpoint, filters=()):
+        raise OpenF1Error("connection reset")
+
+
+def as_season(openf1_data, year: int):
+    """Fixtures (Singapura 2023) relabeladas como outra temporada."""
+    for endpoint in (Endpoint.MEETINGS, Endpoint.SESSIONS):
+        for record in openf1_data[endpoint]:
+            record["year"] = year
+    return openf1_data
+
+
+def season_page_script() -> None:
+    """Roteador reduzido à página Temporada (o AppTest não troca de página).
+
+    Para uso com ``AppTest.from_function``: só o corpo da função é executado.
+    """
+    from f1.config.settings import get_settings  # noqa: PLC0415
+    from f1.dashboard.views.season import render_season  # noqa: PLC0415
+    from f1.dashboard.views.sidebar import (  # noqa: PLC0415
+        SEASON_PAGE,
+        render_sidebar_filters,
+        render_sidebar_footer,
+    )
+    from f1.dashboard.views.theme import prevent_translation  # noqa: PLC0415
+
+    prevent_translation()
+    data_dir = get_settings().data_dir
+    render_sidebar_filters(data_dir, SEASON_PAGE)
+    render_season()
+    render_sidebar_footer(data_dir)
+
+
+@pytest.fixture(autouse=True)
+def offline_flags(monkeypatch):
+    """Sem rede nos testes: o download de bandeiras falha (só o nome do país)."""
+    from f1.dashboard.views import driver_badge  # noqa: PLC0415
+
+    monkeypatch.setattr(driver_badge, "download_flag", lambda _code: None)
+    driver_badge._memory.clear()
+    yield
+    driver_badge._memory.clear()

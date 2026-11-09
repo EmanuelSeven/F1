@@ -11,7 +11,7 @@ def test_run_season_processes_finished_meetings(fake_source, stores, ctx):
         ctx,
         2023,
         endpoints=[Endpoint.LAPS, Endpoint.STINTS],
-        now=datetime(2024, 1, 1, tzinfo=UTC),
+        now=datetime(2026, 1, 1, tzinfo=UTC),
     )
 
     assert [m.pipeline for m in metrics] == ["silver.laps", "silver.stints"]

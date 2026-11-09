@@ -79,6 +79,7 @@ O campo depreciado `country_code` é descartado.
 | `team_name` | `string` | não | — |
 | `team_colour` | `string` | não | regex `^[0-9A-Fa-f]{6}$` |
 | `headshot_url` | `string` | não | — |
+| `country_code` | `string` | não | tamanho 3 |
 
 ## `session_results`
 
@@ -95,6 +96,7 @@ Em classificação a API devolve `duration`/`gap_to_leader` como lista `[Q1, Q2,
 | `driver_number` | `Int64` | sim | [1, 99] |
 | `position` | `Int64` | não | [1, 30] |
 | `number_of_laps` | `Int64` | não | >= 0 |
+| `points` | `Float64` | não | [0, 50] |
 | `duration` | `Float64` | não | (0, 20000] |
 | `gap_to_leader` | `string` | não | — |
 | `dnf` | `boolean` | não | — |
@@ -162,7 +164,7 @@ O campo depreciado `pit_duration` é descartado.
 | `driver_number` | `Int64` | sim | [1, 99] |
 | `lap_number` | `Int64` | sim | [1, 100] |
 | `date` | `datetime64[ns, UTC]` | sim | — |
-| `lane_duration` | `Float64` | não | (0, 600] |
+| `lane_duration` | `Float64` | não | (0, 14400] |
 | `stop_duration` | `Float64` | não | (0, 120] |
 
 ## `weather`
@@ -183,3 +185,17 @@ O campo depreciado `pit_duration` é descartado.
 | `wind_speed` | `Float64` | não | [0, 50] |
 | `wind_direction` | `Int64` | não | [0, 360] |
 | `rainfall` | `boolean` | não | — |
+
+## `starting_grid`
+
+- Endpoint: `/starting_grid`
+- Chave de negócio (única): `session_key, driver_number`
+- Partição: `season=YYYY/meeting_key=N`
+
+| Coluna | Tipo | Obrigatória | Regras |
+|---|---|---|---|
+| `session_key` | `Int64` | sim | >= 1 |
+| `meeting_key` | `Int64` | sim | >= 1 |
+| `driver_number` | `Int64` | sim | [1, 99] |
+| `position` | `Int64` | não | [1, 30] |
+| `lap_duration` | `Float64` | não | (0, 600] |

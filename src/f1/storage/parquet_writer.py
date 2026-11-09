@@ -1,11 +1,16 @@
 """Escrita atômica de partições Parquet (overwrite por partição)."""
 
-import shutil
 from pathlib import Path
 
 import pandas as pd
 
 from f1.domain.models import Partition
+from f1.storage.atomic import (
+    path_lock,
+    remove_stale_temps,
+    swap_directory,
+    temp_sibling,
+)
 from f1.storage.paths import partition_path
 
 PART_FILE = "part-00000.parquet"
@@ -14,16 +19,16 @@ PART_FILE = "part-00000.parquet"
 def write_partition(df: pd.DataFrame, partition_dir: Path) -> Path:
     """Sobrescreve a partição de forma atômica, garantindo idempotência.
 
-    Grava em um diretório de staging irmão (prefixo ``_``, ignorado por leitores
-    Parquet) e só então substitui a partição final.
+    Grava num diretório de staging irmão e exclusivo desta gravação (prefixo
+    ``_``, ignorado por leitores Parquet) e só então substitui a partição final.
+    Gravações concorrentes na mesma partição são seguras: a última vence.
     """
-    staging = partition_dir.with_name(f"_{partition_dir.name}.staging")
-    shutil.rmtree(staging, ignore_errors=True)
+    staging = temp_sibling(partition_dir, ".staging")
     staging.mkdir(parents=True)
     df.to_parquet(staging / PART_FILE, index=False, compression="zstd")
-
-    shutil.rmtree(partition_dir, ignore_errors=True)
-    staging.rename(partition_dir)
+    with path_lock(partition_dir):
+        swap_directory(staging, partition_dir)
+        remove_stale_temps(partition_dir)
     return partition_dir
 
 

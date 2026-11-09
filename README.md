@@ -12,9 +12,9 @@ Datasets: `meetings`, `sessions`, `drivers`, `session_results`, `laps`, `stints`
 ```bash
 poetry env use 3.13
 poetry install
-poetry run python -m f1 calendar --year 2024
-poetry run python -m f1 meeting --meeting-key 1229
-poetry run python -m f1 season --year 2024 --datasets laps,stints
+poetry run python -m f1 calendar --year 2026
+poetry run python -m f1 meeting --meeting-key 1299
+poetry run python -m f1 season --year 2026 --datasets laps,stints
 ```
 
 Os dados ficam em `data/silver/<dataset>/season=YYYY[/meeting_key=N]/part-00000.parquet`.
@@ -27,7 +27,18 @@ Os dados ficam em `data/silver/<dataset>/season=YYYY[/meeting_key=N]/part-00000.
 poetry run streamlit run src/f1/dashboard.py   # ou: poetry run task dashboard
 ```
 
-Mostra arquivos na bronze, registros processados e rejeitados, último `run_id`, última execução e o estado de cada camada. Detalhes em [Execução local](docs/execucao-local.md#dashboard).
+Painel analítico em tema escuro. A barra lateral, comum às páginas, tem a navegação e os filtros de temporada, tipo de sessão, Grande Prêmio, equipe e piloto. São quatro páginas:
+
+- **Última corrida** (inicial): a corrida concluída mais recente, com cabeçalho, pódio, destaques, classificação com largada e posições ganhas, e o top 5 do campeonato.
+- **Temporada**:
+  - título com o ano escolhido na barra lateral (padrão: a temporada mais recente com corrida concluída) e frase-resumo;
+  - KPIs de corridas, sprints, vencedores e pontos do líder;
+  - pontos por piloto e vencedores por corrida;
+  - ao clicar numa corrida: resultado, tempos de volta, pneus, pit stops e clima.
+- **Voltas:** as 5 voltas mais rápidas por circuito, conforme o GP e o tipo de sessão escolhidos.
+- **Data Lake:** estado das camadas bronze, silver e quarentena.
+
+Os dados que faltam são baixados automaticamente da OpenF1: a temporada ao abrir o ano, e os detalhes da corrida ao clicar nela. Detalhes em [Execução local](docs/execucao-local.md#dashboard).
 
 ## Qualidade
 

@@ -3,8 +3,21 @@
 ```text
 src/f1/
 ├── __main__.py                 # CLI e composição das dependências
-├── dashboard.py                # Dashboard Streamlit (somente apresentação)
-├── dashboard/loaders.py        # Leitura e agregação do lake para o dashboard
+├── dashboard.py                # Roteador multipage do Streamlit
+├── dashboard/
+│   ├── loaders.py              # Leitura do lake (resumo, temporada, corrida)
+│   ├── bootstrap.py            # Cargas sob demanda (temporada, detalhes)
+│   └── views/
+│       ├── sidebar.py          # Barra lateral: marca, filtros e rodapé
+│       ├── data.py             # Leituras em cache e cargas sob demanda
+│       ├── latest.py           # Página "Última corrida" (inicial)
+│       ├── season.py           # Página "Temporada"
+│       ├── laps.py             # Página "Voltas" (5 mais rápidas por circuito)
+│       ├── tables.py           # Tabelas com equipe colorida e destaque
+│       ├── lake.py             # Página "Data Lake"
+│       ├── charts.py           # Gráficos Plotly (DataFrame → Figure)
+│       ├── formatting.py       # Textos e números em português
+│       └── theme.py            # CSS, cores de equipe/pneus, layout Plotly
 ├── config/settings.py          # Settings (pydantic-settings, prefixo F1_)
 ├── domain/
 │   ├── endpoints.py            # Endpoint, DatasetSpec, chaves e partições
@@ -15,12 +28,17 @@ src/f1/
 │   └── openf1_client.py        # Cliente httpx com retry e rate limit
 ├── processing/
 │   ├── normalize.py            # Colunas declaradas por dataset + casts
-│   └── lineage.py              # _run_id, _ingested_at, _source
+│   ├── lineage.py              # _run_id, _ingested_at, _source
+│   ├── standings.py            # Pontos, vitórias, pódios, vencedores, KPIs
+│   ├── filters.py              # SeasonFilter e aplicação dos filtros
+│   ├── fastest_laps.py         # Voltas mais rápidas por circuito
+│   └── last_race.py            # Última corrida: escolha, largada, destaques
 ├── quality/
 │   ├── schemas.py              # Um DataFrameSchema Pandera por dataset
 │   └── validation.py           # validate() → ValidationResult / DataQualityError
 ├── storage/
 │   ├── paths.py                # {base}/{dataset}/season=Y[/meeting_key=N]
+│   ├── atomic.py               # Troca atômica segura com gravações concorrentes
 │   ├── bronze.py               # JSON bruto com escrita atômica
 │   ├── parquet_writer.py       # Overwrite atômico de partição
 │   └── quarantine.py           # Rejeitados (limpa a partição se vazio)
@@ -28,7 +46,9 @@ src/f1/
 │   ├── common.py               # normaliza → valida → silver/quarentena
 │   ├── calendar.py             # meetings + sessions de um ano
 │   ├── meeting.py              # 6 datasets de sessão de um meeting
-│   └── season.py               # calendário + meetings encerrados
+│   ├── results.py              # resultados em lote + grade de largada por GP
+│   ├── season.py               # calendário + meetings encerrados
+│   └── factory.py              # build_stores (CLI e dashboard)
 └── utils/
     ├── logging.py              # JsonFormatter + configure_logging
     ├── metrics.py              # PipelineMetrics + track_pipeline
