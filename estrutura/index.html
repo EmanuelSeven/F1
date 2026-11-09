@@ -764,41 +764,61 @@
 <h1 id="estrutura-do-projeto">Estrutura do projeto<a class="headerlink" href="#estrutura-do-projeto" title="Permanent link">&para;</a></h1>
 <div class="highlight"><pre><span></span><code><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a>src/f1/
 <a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>├── __main__.py                 # CLI e composição das dependências
-<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>├── dashboard.py                # Dashboard Streamlit (somente apresentação)
-<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>├── dashboard/loaders.py        # Leitura e agregação do lake para o dashboard
-<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>├── config/settings.py          # Settings (pydantic-settings, prefixo F1_)
-<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>├── domain/
-<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>│   ├── endpoints.py            # Endpoint, DatasetSpec, chaves e partições
-<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>│   ├── models.py               # Filter, Partition, MeetingRef, SessionRef
-<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>│   └── ports.py                # OpenF1Source, RawStore, DatasetStore
-<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>├── ingestion/
-<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>│   ├── query.py                # Query string (=, &gt;, &lt;, &gt;=, &lt;=, multivalor)
-<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>│   └── openf1_client.py        # Cliente httpx com retry e rate limit
-<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>├── processing/
-<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>│   ├── normalize.py            # Colunas declaradas por dataset + casts
-<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>│   └── lineage.py              # _run_id, _ingested_at, _source
-<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>├── quality/
-<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>│   ├── schemas.py              # Um DataFrameSchema Pandera por dataset
-<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>│   └── validation.py           # validate() → ValidationResult / DataQualityError
-<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>├── storage/
-<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>│   ├── paths.py                # {base}/{dataset}/season=Y[/meeting_key=N]
-<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>│   ├── bronze.py               # JSON bruto com escrita atômica
-<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>│   ├── parquet_writer.py       # Overwrite atômico de partição
-<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>│   └── quarantine.py           # Rejeitados (limpa a partição se vazio)
-<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>├── pipelines/
-<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>│   ├── common.py               # normaliza → valida → silver/quarentena
-<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>│   ├── calendar.py             # meetings + sessions de um ano
-<a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>│   ├── meeting.py              # 6 datasets de sessão de um meeting
-<a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>│   └── season.py               # calendário + meetings encerrados
-<a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>└── utils/
-<a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a>    ├── logging.py              # JsonFormatter + configure_logging
-<a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a>    ├── metrics.py              # PipelineMetrics + track_pipeline
-<a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a>    └── dates.py                # ISO 8601 → UTC
-<a id="__codelineno-0-33" name="__codelineno-0-33" href="#__codelineno-0-33"></a>tests/
-<a id="__codelineno-0-34" name="__codelineno-0-34" href="#__codelineno-0-34"></a>├── conftest.py                 # load_fixture, FakeOpenF1Source
-<a id="__codelineno-0-35" name="__codelineno-0-35" href="#__codelineno-0-35"></a>├── fixtures/openf1/*.json      # Amostras pequenas por endpoint
-<a id="__codelineno-0-36" name="__codelineno-0-36" href="#__codelineno-0-36"></a>├── unit/                       # Espelho de src/f1, sem rede
-<a id="__codelineno-0-37" name="__codelineno-0-37" href="#__codelineno-0-37"></a>└── integration/                # @pytest.mark.integration (API real)
+<a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a>├── dashboard.py                # Roteador multipage do Streamlit
+<a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>├── dashboard/
+<a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>│   ├── loaders.py              # Leitura do lake (resumo, temporada, corrida)
+<a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>│   ├── bootstrap.py            # Cargas sob demanda (temporada, detalhes)
+<a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>│   └── views/
+<a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>│       ├── sidebar.py          # Barra lateral: marca, filtros e rodapé
+<a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>│       ├── data.py             # Leituras em cache e cargas sob demanda
+<a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a>│       ├── latest.py           # Página "Última corrida" (inicial)
+<a id="__codelineno-0-11" name="__codelineno-0-11" href="#__codelineno-0-11"></a>│       ├── season.py           # Página "Temporada"
+<a id="__codelineno-0-12" name="__codelineno-0-12" href="#__codelineno-0-12"></a>│       ├── laps.py             # Página "Voltas" (5 mais rápidas por circuito)
+<a id="__codelineno-0-13" name="__codelineno-0-13" href="#__codelineno-0-13"></a>│       ├── tables.py           # Tabelas com equipe colorida e destaque
+<a id="__codelineno-0-14" name="__codelineno-0-14" href="#__codelineno-0-14"></a>│       ├── lake.py             # Página "Data Lake"
+<a id="__codelineno-0-15" name="__codelineno-0-15" href="#__codelineno-0-15"></a>│       ├── charts.py           # Gráficos Plotly (DataFrame → Figure)
+<a id="__codelineno-0-16" name="__codelineno-0-16" href="#__codelineno-0-16"></a>│       ├── formatting.py       # Textos e números em português
+<a id="__codelineno-0-17" name="__codelineno-0-17" href="#__codelineno-0-17"></a>│       └── theme.py            # CSS, cores de equipe/pneus, layout Plotly
+<a id="__codelineno-0-18" name="__codelineno-0-18" href="#__codelineno-0-18"></a>├── config/settings.py          # Settings (pydantic-settings, prefixo F1_)
+<a id="__codelineno-0-19" name="__codelineno-0-19" href="#__codelineno-0-19"></a>├── domain/
+<a id="__codelineno-0-20" name="__codelineno-0-20" href="#__codelineno-0-20"></a>│   ├── endpoints.py            # Endpoint, DatasetSpec, chaves e partições
+<a id="__codelineno-0-21" name="__codelineno-0-21" href="#__codelineno-0-21"></a>│   ├── models.py               # Filter, Partition, MeetingRef, SessionRef
+<a id="__codelineno-0-22" name="__codelineno-0-22" href="#__codelineno-0-22"></a>│   └── ports.py                # OpenF1Source, RawStore, DatasetStore
+<a id="__codelineno-0-23" name="__codelineno-0-23" href="#__codelineno-0-23"></a>├── ingestion/
+<a id="__codelineno-0-24" name="__codelineno-0-24" href="#__codelineno-0-24"></a>│   ├── query.py                # Query string (=, &gt;, &lt;, &gt;=, &lt;=, multivalor)
+<a id="__codelineno-0-25" name="__codelineno-0-25" href="#__codelineno-0-25"></a>│   └── openf1_client.py        # Cliente httpx com retry e rate limit
+<a id="__codelineno-0-26" name="__codelineno-0-26" href="#__codelineno-0-26"></a>├── processing/
+<a id="__codelineno-0-27" name="__codelineno-0-27" href="#__codelineno-0-27"></a>│   ├── normalize.py            # Colunas declaradas por dataset + casts
+<a id="__codelineno-0-28" name="__codelineno-0-28" href="#__codelineno-0-28"></a>│   ├── lineage.py              # _run_id, _ingested_at, _source
+<a id="__codelineno-0-29" name="__codelineno-0-29" href="#__codelineno-0-29"></a>│   ├── standings.py            # Pontos, vitórias, pódios, vencedores, KPIs
+<a id="__codelineno-0-30" name="__codelineno-0-30" href="#__codelineno-0-30"></a>│   ├── filters.py              # SeasonFilter e aplicação dos filtros
+<a id="__codelineno-0-31" name="__codelineno-0-31" href="#__codelineno-0-31"></a>│   ├── fastest_laps.py         # Voltas mais rápidas por circuito
+<a id="__codelineno-0-32" name="__codelineno-0-32" href="#__codelineno-0-32"></a>│   └── last_race.py            # Última corrida: escolha, largada, destaques
+<a id="__codelineno-0-33" name="__codelineno-0-33" href="#__codelineno-0-33"></a>├── quality/
+<a id="__codelineno-0-34" name="__codelineno-0-34" href="#__codelineno-0-34"></a>│   ├── schemas.py              # Um DataFrameSchema Pandera por dataset
+<a id="__codelineno-0-35" name="__codelineno-0-35" href="#__codelineno-0-35"></a>│   └── validation.py           # validate() → ValidationResult / DataQualityError
+<a id="__codelineno-0-36" name="__codelineno-0-36" href="#__codelineno-0-36"></a>├── storage/
+<a id="__codelineno-0-37" name="__codelineno-0-37" href="#__codelineno-0-37"></a>│   ├── paths.py                # {base}/{dataset}/season=Y[/meeting_key=N]
+<a id="__codelineno-0-38" name="__codelineno-0-38" href="#__codelineno-0-38"></a>│   ├── atomic.py               # Troca atômica segura com gravações concorrentes
+<a id="__codelineno-0-39" name="__codelineno-0-39" href="#__codelineno-0-39"></a>│   ├── bronze.py               # JSON bruto com escrita atômica
+<a id="__codelineno-0-40" name="__codelineno-0-40" href="#__codelineno-0-40"></a>│   ├── parquet_writer.py       # Overwrite atômico de partição
+<a id="__codelineno-0-41" name="__codelineno-0-41" href="#__codelineno-0-41"></a>│   └── quarantine.py           # Rejeitados (limpa a partição se vazio)
+<a id="__codelineno-0-42" name="__codelineno-0-42" href="#__codelineno-0-42"></a>├── pipelines/
+<a id="__codelineno-0-43" name="__codelineno-0-43" href="#__codelineno-0-43"></a>│   ├── common.py               # normaliza → valida → silver/quarentena
+<a id="__codelineno-0-44" name="__codelineno-0-44" href="#__codelineno-0-44"></a>│   ├── calendar.py             # meetings + sessions de um ano
+<a id="__codelineno-0-45" name="__codelineno-0-45" href="#__codelineno-0-45"></a>│   ├── meeting.py              # 6 datasets de sessão de um meeting
+<a id="__codelineno-0-46" name="__codelineno-0-46" href="#__codelineno-0-46"></a>│   ├── results.py              # resultados em lote + grade de largada por GP
+<a id="__codelineno-0-47" name="__codelineno-0-47" href="#__codelineno-0-47"></a>│   ├── season.py               # calendário + meetings encerrados
+<a id="__codelineno-0-48" name="__codelineno-0-48" href="#__codelineno-0-48"></a>│   └── factory.py              # build_stores (CLI e dashboard)
+<a id="__codelineno-0-49" name="__codelineno-0-49" href="#__codelineno-0-49"></a>└── utils/
+<a id="__codelineno-0-50" name="__codelineno-0-50" href="#__codelineno-0-50"></a>    ├── logging.py              # JsonFormatter + configure_logging
+<a id="__codelineno-0-51" name="__codelineno-0-51" href="#__codelineno-0-51"></a>    ├── metrics.py              # PipelineMetrics + track_pipeline
+<a id="__codelineno-0-52" name="__codelineno-0-52" href="#__codelineno-0-52"></a>    └── dates.py                # ISO 8601 → UTC
+<a id="__codelineno-0-53" name="__codelineno-0-53" href="#__codelineno-0-53"></a>tests/
+<a id="__codelineno-0-54" name="__codelineno-0-54" href="#__codelineno-0-54"></a>├── conftest.py                 # load_fixture, FakeOpenF1Source
+<a id="__codelineno-0-55" name="__codelineno-0-55" href="#__codelineno-0-55"></a>├── fixtures/openf1/*.json      # Amostras pequenas por endpoint
+<a id="__codelineno-0-56" name="__codelineno-0-56" href="#__codelineno-0-56"></a>├── unit/                       # Espelho de src/f1, sem rede
+<a id="__codelineno-0-57" name="__codelineno-0-57" href="#__codelineno-0-57"></a>└── integration/                # @pytest.mark.integration (API real)
 </code></pre></div>
 <h2 id="como-adicionar-um-dataset">Como adicionar um dataset<a class="headerlink" href="#como-adicionar-um-dataset" title="Permanent link">&para;</a></h2>
 <ol>

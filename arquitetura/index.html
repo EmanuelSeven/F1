@@ -836,7 +836,8 @@
     PRC --&gt; QLT{quality&lt;br/&gt;Pandera}
     QLT --&gt;|válidos| SLV[/silver&lt;br/&gt;Parquet/]
     QLT --&gt;|rejeitados| QRT[/quarentena&lt;br/&gt;Parquet/]
-    SLV -.-&gt; DSH[dashboard&lt;br/&gt;Streamlit]
+    SLV -.-&gt; DSH[dashboard&lt;br/&gt;Streamlit + Plotly]
+    DSH -.-&gt;|cargas sob demanda| ING
     QRT -.-&gt; DSH
     BRZ -.-&gt; DSH</code></pre>
 <p>A unidade de trabalho é um <strong>meeting</strong> (fim de semana de GP). A pipeline de temporada carrega o calendário do ano e depois cada meeting já encerrado, em sequência.</p>
@@ -862,7 +863,7 @@
 </tr>
 <tr>
 <td><code>processing</code></td>
-<td>Normalização tipada e colunas de linhagem</td>
+<td>Normalização tipada, colunas de linhagem e agregações analíticas da temporada (<code>standings.py</code>: pontos, vitórias, pódios, vencedores, KPIs; <code>filters.py</code>: aplicação dos filtros do dashboard)</td>
 <td><code>domain</code>, <code>utils</code></td>
 </tr>
 <tr>
@@ -877,7 +878,7 @@
 </tr>
 <tr>
 <td><code>pipelines</code></td>
-<td>Orquestração <code>calendar</code> → <code>meeting</code> → <code>season</code></td>
+<td>Orquestração <code>calendar</code> → <code>meeting</code> → <code>season</code>, <code>results</code> (drivers + resultados de várias sessões em lote) e <code>factory</code> (composição dos stores)</td>
 <td>todas</td>
 </tr>
 <tr>
@@ -887,22 +888,38 @@
 </tr>
 <tr>
 <td><code>dashboard</code> (apresentação)</td>
-<td><code>dashboard/loaders.py</code> lê e agrega o lake (sem visualização); <code>dashboard.py</code> só renderiza com Streamlit</td>
-<td><code>domain</code>, <code>storage</code>, <code>config</code></td>
+<td><code>loaders.py</code> lê o lake; <code>bootstrap.py</code> dispara cargas sob demanda; <code>views/</code> monta as páginas (Streamlit + Plotly); <code>dashboard.py</code> é o roteador multipage</td>
+<td>todas</td>
 </tr>
 </tbody>
 </table>
-<p>O dashboard é somente leitura: não executa pipelines nem regras de negócio. <code>dashboard.py</code> não acessa arquivos; toda leitura passa por <code>f1.dashboard.loaders</code>. Como o arquivo e o pacote compartilham o nome <code>f1.dashboard</code>, o <code>dashboard.py</code> é executado pelo caminho (<code>streamlit run</code>) e checado pelo MyPy em uma etapa própria.</p>
-<p>A composição das implementações concretas acontece apenas em <code>src/f1/__main__.py</code>. As pipelines recebem a fonte e os stores por parâmetro, o que permite testá-las com uma fonte falsa em memória.</p>
+<p>O dashboard não contém regra de negócio:</p>
+<ul>
+<li>as agregações e a aplicação dos filtros ficam em <code>f1.processing.standings</code> e <code>f1.processing.filters</code>, como funções puras;</li>
+<li>a leitura do lake fica em <code>f1.dashboard.loaders</code>;</li>
+<li>as cargas da API reaproveitam as pipelines existentes, por meio de <code>f1.dashboard.bootstrap</code>;</li>
+<li>as páginas de <code>f1.dashboard.views</code> só compõem a tela.</li>
+</ul>
+<p>Como o arquivo <code>dashboard.py</code> e o pacote <code>dashboard/</code> compartilham o nome <code>f1.dashboard</code>, o <code>dashboard.py</code> é executado pelo caminho (<code>streamlit run</code>) e checado pelo MyPy numa etapa própria.</p>
+<p>As implementações concretas são compostas em dois pontos de entrada: a CLI (<code>src/f1/__main__.py</code>) e o dashboard (<code>f1.dashboard.bootstrap</code>). Ambos usam <code>f1.pipelines.factory.build_stores</code>. As pipelines recebem a fonte e os stores por parâmetro, o que permite testá-las com uma fonte falsa em memória.</p>
 <h2 id="decisoes">Decisões<a class="headerlink" href="#decisoes" title="Permanent link">&para;</a></h2>
 <ul>
-<li><strong>Idempotência por overwrite de partição.</strong> Cada dataset de um meeting é gravado em <code>season=YYYY/meeting_key=N/part-00000.parquet</code>, num diretório de staging que só substitui a partição final depois de escrito. Reexecutar produz o mesmo conteúdo (só mudam <code>_run_id</code> e <code>_ingested_at</code>). Sem rejeitados, a partição de quarentena é removida.</li>
+<li><strong>Idempotência por overwrite de partição.</strong> Cada dataset de um meeting é gravado em <code>season=YYYY/meeting_key=N/part-00000.parquet</code>, num diretório de staging que só substitui a partição final depois de escrito. Reexecutar produz o mesmo conteúdo (só mudam <code>_run_id</code> e <code>_ingested_at</code>). Sem rejeitados, a partição de quarentena é removida. Gravações simultâneas na mesma partição (duas abas do dashboard, ou dashboard e CLI ao mesmo tempo) são seguras: cada uma usa um staging exclusivo, a troca é serializada por partição e o último gravador vence. Temporários órfãos de execuções interrompidas são removidos na gravação seguinte (<code>f1.storage.atomic</code>).</li>
 <li><strong>Bronze por sessão, silver por meeting.</strong> A API é consultada por <code>session_key</code>; o bronze guarda um JSON por sessão e o silver concatena as sessões do meeting num único arquivo, o que evita arquivos pequenos (cerca de 24 por ano por dataset).</li>
 <li><strong>Validação em dois níveis.</strong> Violações de schema (coluna ausente/extra, tipo errado) interrompem a pipeline na hora. Violações de linha (nulidade, faixa, unicidade da chave de negócio, consistência entre colunas) vão para a quarentena; acima de <code>F1_MAX_REJECTION_RATE</code> (5%) a pipeline grava a quarentena e falha com <code>DataQualityError</code>.</li>
 <li><strong>Cancelados.</strong> Meetings e sessões com <code>is_cancelled=true</code> ficam no silver, mas não são processados pelas pipelines de sessão.</li>
 <li><strong>Rate limit não documentado.</strong> Intervalo mínimo configurável entre requisições (<code>F1_REQUEST_INTERVAL_SECONDS</code>) e backoff exponencial em <code>429</code>/<code>5xx</code>/timeout, respeitando <code>Retry-After</code>.</li>
 <li><strong>Erros da API.</strong> <code>404</code> é tratado como "sem dados" (lista vazia). <code>401</code>/<code>403</code> lançam <code>OpenF1AccessError</code> sem retry; isso acontece durante sessões ao vivo, quando a OpenF1 bloqueia o acesso gratuito.</li>
-<li><strong>Campos depreciados</strong> (<code>country_code</code> em drivers, <code>pit_duration</code> em pit) não entram no silver.</li>
+<li><strong>Campos depreciados.</strong> <code>pit_duration</code> (pit) não entra no silver. <code>country_code</code> (drivers) entra como opcional, só para a nacionalidade do piloto. Como ele chega vazio a partir de 2026, há um mapeamento fixo por sigla em <code>src/f1/processing/data/driver_nationalities.json</code> (<code>f1.processing.nationality</code>).</li>
+<li><strong>Resultados em lote.</strong> <code>run_results</code> busca <code>drivers</code> e <code>session_result</code> de várias sessões numa só requisição (<code>session_key</code> repetido, até 25 por lote). A temporada inteira de corridas e sprints sai em 2 requisições, e a gravação continua no padrão do meeting: bronze por sessão, silver e quarentena por meeting.</li>
+<li><strong>Tipos de sessão.</strong> <code>classify_session</code> (domínio) classifica cada sessão em corrida, sprint, classificação ou treino; testes de pré-temporada ficam fora das análises por não terem corrida.</li>
+<li><strong>Pit lane com bandeira vermelha.</strong> Em <code>pit_stops</code>, <code>lane_duration</code> inclui o tempo parado no pit lane durante uma suspensão: no México 2026 foram cerca de 37 min para 19 carros. O limite de validação é 4 h, porque nenhuma permanência no pit lane dura mais que a própria corrida, e não os 600 s de uma passagem normal. Assim a suspensão não é tratada como erro, e valores absurdos (zero, negativos ou erro de unidade) continuam indo para a quarentena. O <code>max_rejection_rate</code> não mudou.</li>
+<li><strong>Grade de largada por meeting.</strong> <code>starting_grid</code> é o único dataset buscado uma vez por meeting (<code>DatasetSpec.per_session=False</code>), e não sessão a sessão: a OpenF1 associa a grade à sessão de classificação que a definiu. Ele não entra no comando <code>meeting</code> da CLI e é carregado pelo dashboard.</li>
+<li><strong>Última corrida e cache curto.</strong> A escolha (corrida concluída mais recente com resultados) é uma função pura (<code>f1.processing.last_race</code>). A atualização de resultados acontece no máximo a cada 10 minutos (chave de cache por janela de tempo), inclusive quando falha.</li>
+<li><strong>Voltas por união de sessões.</strong> A partição <code>laps</code> é por meeting e é regravada inteira a cada carga. A página <em>Voltas</em> e os detalhes da corrida regravam a união das sessões que já estão no lake com as novas, para que uma carga não apague as voltas da outra.</li>
+<li><strong>Piloto, não número.</strong> A classificação agrupa por piloto: quem trocou de número no ano (ex.: Bearman, #38 e #50 em 2024) aparece uma vez, com os pontos somados.</li>
+<li><strong>Sprints.</strong> Na OpenF1 a sprint tem <code>session_type="Race"</code> e <code>session_name="Sprint"</code>; <code>SessionRef.is_race</code>, <code>is_sprint</code> e <code>awards_points</code> encapsulam essa regra.</li>
+<li><strong>Pontos</strong> vêm de <code>session_results.points</code> (coluna adicionada nesta versão), que já inclui o ponto da volta mais rápida; vitórias e pódios contam apenas corridas principais.</li>
 </ul>
 <h2 id="observabilidade">Observabilidade<a class="headerlink" href="#observabilidade" title="Permanent link">&para;</a></h2>
 <p>Cada dataset é envolto em <code>track_pipeline</code>, que registra em JSON os eventos <code>pipeline_started</code>, <code>pipeline_finished</code> e <code>pipeline_failed</code> com <code>run_id</code>, <code>destination</code>, <code>records_read</code>, <code>records_processed</code>, <code>records_rejected</code> e <code>duration_seconds</code>. Um único <code>run_id</code> é gerado por execução da CLI e propagado a todos os eventos. Cada requisição HTTP gera um evento <code>openf1_request</code>.</p>

@@ -758,6 +758,17 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#starting_grid" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        starting_grid
+      
+    </span>
+  </a>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -882,6 +893,17 @@
     <span class="md-ellipsis">
       
         weather
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#starting_grid" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        starting_grid
       
     </span>
   </a>
@@ -1219,6 +1241,12 @@
 <td>não</td>
 <td>—</td>
 </tr>
+<tr>
+<td><code>country_code</code></td>
+<td><code>string</code></td>
+<td>não</td>
+<td>tamanho 3</td>
+</tr>
 </tbody>
 </table>
 <h2 id="session_results"><code>session_results</code><a class="headerlink" href="#session_results" title="Permanent link">&para;</a></h2>
@@ -1267,6 +1295,12 @@
 <td><code>Int64</code></td>
 <td>não</td>
 <td>&gt;= 0</td>
+</tr>
+<tr>
+<td><code>points</code></td>
+<td><code>Float64</code></td>
+<td>não</td>
+<td>[0, 50]</td>
 </tr>
 <tr>
 <td><code>duration</code></td>
@@ -1533,7 +1567,7 @@
 <td><code>lane_duration</code></td>
 <td><code>Float64</code></td>
 <td>não</td>
-<td>(0, 600]</td>
+<td>(0, 14400]</td>
 </tr>
 <tr>
 <td><code>stop_duration</code></td>
@@ -1618,6 +1652,54 @@
 <td><code>boolean</code></td>
 <td>não</td>
 <td>—</td>
+</tr>
+</tbody>
+</table>
+<h2 id="starting_grid"><code>starting_grid</code><a class="headerlink" href="#starting_grid" title="Permanent link">&para;</a></h2>
+<ul>
+<li>Endpoint: <code>/starting_grid</code></li>
+<li>Chave de negócio (única): <code>session_key, driver_number</code></li>
+<li>Partição: <code>season=YYYY/meeting_key=N</code></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>Coluna</th>
+<th>Tipo</th>
+<th>Obrigatória</th>
+<th>Regras</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>session_key</code></td>
+<td><code>Int64</code></td>
+<td>sim</td>
+<td>&gt;= 1</td>
+</tr>
+<tr>
+<td><code>meeting_key</code></td>
+<td><code>Int64</code></td>
+<td>sim</td>
+<td>&gt;= 1</td>
+</tr>
+<tr>
+<td><code>driver_number</code></td>
+<td><code>Int64</code></td>
+<td>sim</td>
+<td>[1, 99]</td>
+</tr>
+<tr>
+<td><code>position</code></td>
+<td><code>Int64</code></td>
+<td>não</td>
+<td>[1, 30]</td>
+</tr>
+<tr>
+<td><code>lap_duration</code></td>
+<td><code>Float64</code></td>
+<td>não</td>
+<td>(0, 600]</td>
 </tr>
 </tbody>
 </table>

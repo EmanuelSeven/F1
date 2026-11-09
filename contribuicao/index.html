@@ -552,6 +552,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#pipeline-de-ci-github-actions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pipeline de CI (GitHub Actions)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#versionamento" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -770,6 +781,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#pipeline-de-ci-github-actions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Pipeline de CI (GitHub Actions)
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#versionamento" class="md-nav__link">
     <span class="md-ellipsis">
       
@@ -858,6 +880,39 @@
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Arquivos novos em UTF-8 sem BOM</li>
 <li class="task-list-item"><label class="task-list-control"><input type="checkbox" disabled/><span class="task-list-indicator"></span></label> Nenhum secret ou dado sensível incluído</li>
 </ul>
+<h2 id="pipeline-de-ci-github-actions">Pipeline de CI (GitHub Actions)<a class="headerlink" href="#pipeline-de-ci-github-actions" title="Permanent link">&para;</a></h2>
+<p>Definida em <code>.github/workflows/ci.yml</code>. Dispara em push para <code>main</code> e <code>dev</code>, em todo Pull Request e manualmente (aba <strong>Actions → CI → Run workflow</strong>). Um push novo na mesma branch cancela a execução anterior.</p>
+<table>
+<thead>
+<tr>
+<th>Job</th>
+<th>Quando roda</th>
+<th>O que faz</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Qualidade, testes e docs</strong></td>
+<td>Sempre</td>
+<td><code>poetry check --lock</code> → <code>poetry install --with docs</code> → <code>ruff format --check</code> → <code>ruff check</code> → <code>mypy src</code> + <code>mypy src/f1/dashboard.py</code> → <code>pytest -m "not integration"</code> (mínimo de 50%) → metas por camada (não bloqueiam) → <code>mkdocs build --strict</code></td>
+</tr>
+<tr>
+<td><strong>Publicar documentação</strong></td>
+<td>Push em <code>main</code>, depois do job anterior passar</td>
+<td><code>mkdocs gh-deploy</code> para a branch <code>gh-pages</code></td>
+</tr>
+<tr>
+<td><strong>Testes de integração</strong></td>
+<td>Execução manual com a opção marcada</td>
+<td><code>pytest -m integration</code> contra a OpenF1 real (pulados se a API responder 401 por sessão ao vivo)</td>
+</tr>
+</tbody>
+</table>
+<p>O resumo de cobertura aparece na página de cada execução, e o <code>coverage.xml</code> fica disponível como artefato.</p>
+<div class="admonition tip">
+<p class="admonition-title">Proteção da <code>main</code></p>
+<p>O SKILL.md exige que o job <strong>Qualidade, testes e docs</strong> seja check obrigatório. Configure em <strong>Settings → Branches → Add branch ruleset</strong> (ou <em>Branch protection rules</em>) para <code>main</code>: exija Pull Request com 1 aprovação e o status check <code>Qualidade, testes e docs</code>.</p>
+</div>
 <h2 id="versionamento">Versionamento<a class="headerlink" href="#versionamento" title="Permanent link">&para;</a></h2>
 <p>O projeto segue SemVer (<code>poetry version patch|minor|major</code>). Mudanças de schema silver consumidas por terceiros são <strong>MAJOR</strong>.</p>
 
