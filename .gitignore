@@ -14,7 +14,8 @@ site/
 dist/
 
 # Dados locais
-/data/  # lake local (só na raiz; não ignora src/f1/processing/data/)
+# Lake local: só na raiz (src/f1/processing/data/ é versionado)
+/data/
 *.parquet
 *.csv
 
