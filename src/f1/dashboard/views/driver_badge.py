@@ -7,7 +7,8 @@
 - ``driver_html(driver)`` → ``"[bandeira] Nome Sobrenome"``;
 - ``flag_country_image(iso2)`` → ``data:`` URI SVG (bandeira + país) para
   ``st.column_config.ImageColumn``;
-- ``country_label(iso2)`` → nome do país para tooltips de gráficos.
+- ``country_label(iso2)`` → nome do país para tooltips de gráficos;
+- ``flag_png_url(iso2)`` → URL PNG do flagcdn para imagens em gráficos Plotly.
 
 O Windows não exibe emoji de bandeira, por isso tudo usa imagens. A bandeira
 SVG é baixada do flagcdn uma vez e EMBUTIDA em base64 (um SVG exibido como
@@ -34,6 +35,7 @@ from f1.processing.nationality import nationality
 logger = logging.getLogger(__name__)
 
 FLAG_SVG_URL = "https://flagcdn.com/{code}.svg"
+FLAG_PNG_URL = "https://flagcdn.com/w40/{code}.png"
 DOWNLOAD_TIMEOUT_SECONDS = 5.0
 LOCALE = Locale("pt", "BR")
 
@@ -197,6 +199,16 @@ def nationality_of(driver: DriverLike) -> Nationality | None:
         acronym = driver.get("acronym") or driver.get("name_acronym")
         code = _iso2(nationality(driver.get("country_code"), acronym))
     return None if code is None else Nationality(code, country_name(code))
+
+
+def flag_png_url(code: object) -> str | None:
+    """URL da bandeira PNG (40 px) no flagcdn (``None`` sem nacionalidade).
+
+    Para gráficos Plotly (``layout.images``): o navegador baixa a imagem; sem
+    internet, a bandeira só não aparece.
+    """
+    iso2 = _iso2(code)
+    return None if iso2 is None else FLAG_PNG_URL.format(code=iso2)
 
 
 def country_label(code: object) -> str:
