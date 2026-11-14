@@ -30,8 +30,11 @@ Copie `.env.example` para `.env` e ajuste se precisar. Todas usam o prefixo `F1_
 | `F1_MAX_REJECTION_RATE` | `0.05` | Taxa máxima de rejeição antes de falhar |
 | `F1_SUPABASE_URL` | vazio | URL do projeto Supabase do contador de acessos (ex.: `https://xyz.supabase.co`) |
 | `F1_SUPABASE_KEY` | vazio | Publishable key do projeto Supabase (`sb_publishable_...`) |
+| `F1_HISTORY_ENVIRONMENT` | `local` | Ambiente gravado no histórico de rejeições do Supabase: `local` ou `cloud` (só no app publicado) |
 
 Sem `F1_SUPABASE_URL` ou `F1_SUPABASE_KEY`, o contador de acessos do dashboard fica desligado (veja [Contador de acessos](#contador-de-acessos)).
+
+Com as duas preenchidas, cada carga também envia o histórico de rejeições à função `record_rejections` do Supabase, marcado com `F1_HISTORY_ENVIRONMENT`. O arquivo em `data/rejection_history` continua sendo gravado; se o Supabase falhar, a carga registra o aviso `rejection_history_remote_failed` e segue normal. No Streamlit Community Cloud, adicione `F1_HISTORY_ENVIRONMENT = "cloud"` em **Settings → Secrets**.
 
 ## Comandos
 
@@ -161,6 +164,118 @@ Para ligar:
     ```
 
 Os testes desligam o contador (`F1_SUPABASE_*` vazios), mesmo que o `.env` local as tenha.
+
+### Histórico de rejeições no Supabase
+
+O histórico de rejeições (`data/rejection_history`) também se perde a cada reinício do Streamlit Community Cloud. Para guardá-lo fora do disco, o mesmo projeto Supabase do contador tem a tabela `rejection_history`, gravada pela função `record_rejections`. Rode o SQL abaixo no **SQL Editor**:
+
+```sql
+-- Histórico de rejeições: contagem por carga, partição e regra (só cresce).
+create table if not exists public.rejection_history (
+  id            bigint generated always as identity primary key,
+  environment   text        not null check (environment in ('local', 'cloud')),
+  run_id        text        not null check (length(run_id) between 1 and 64),
+  recorded_at   timestamptz not null,
+  dataset       text        not null check (dataset in (
+                  'meetings', 'sessions', 'drivers', 'session_results', 'laps',
+                  'stints', 'pit_stops', 'weather', 'starting_grid')),
+  season        smallint    not null check (season between 2018 and 2100),
+  meeting_key   integer              check (meeting_key > 0),
+  rule          text                 check (length(rule) <= 200),
+  rejected      integer     not null check (rejected >= 0),
+  records_read  integer     not null check (records_read >= 0),
+  aborted       boolean     not null,
+  rows_rejected integer     not null check (rows_rejected between 0 and records_read),
+  rules_version smallint    not null check (rules_version >= 1),
+  -- Uma linha por carga, partição e regra (rule nulo = carga sem rejeição).
+  unique nulls not distinct (environment, run_id, dataset, season, meeting_key, rule)
+);
+
+-- O gráfico filtra por dataset e ambiente e ordena por data.
+create index if not exists rejection_history_dataset_idx
+  on public.rejection_history (environment, dataset, recorded_at);
+
+alter table public.rejection_history enable row level security;
+
+-- Leitura pública (dados do projeto, sem informação pessoal); escrita só pela função.
+revoke all on table public.rejection_history from anon, authenticated;
+grant select on table public.rejection_history to anon;
+create policy "rejection_history leitura publica"
+  on public.rejection_history for select to anon using (true);
+
+-- Grava as linhas de UMA partição de UMA carga, substituindo o que essa carga
+-- já tinha gravado nela (mesmo comportamento do arquivo Parquet por run_id).
+create or replace function public.record_rejections(p_rows jsonb)
+returns integer
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  partitions integer;
+  inserted integer;
+begin
+  if jsonb_typeof(p_rows) is distinct from 'array'
+     or jsonb_array_length(p_rows) not between 1 and 500 then
+    raise exception 'p_rows deve ser uma lista com 1 a 500 linhas';
+  end if;
+
+  select count(distinct (r.environment, r.run_id, r.dataset, r.season, r.meeting_key))
+    into partitions
+    from jsonb_to_recordset(p_rows) as r(
+      environment text, run_id text, dataset text, season smallint, meeting_key integer);
+  if partitions <> 1 then
+    raise exception 'p_rows deve ter uma única carga e partição';
+  end if;
+
+  delete from public.rejection_history h
+   using (select distinct r.environment, r.run_id, r.dataset, r.season, r.meeting_key
+            from jsonb_to_recordset(p_rows) as r(
+              environment text, run_id text, dataset text, season smallint,
+              meeting_key integer)) k
+   where h.environment = k.environment
+     and h.run_id = k.run_id
+     and h.dataset = k.dataset
+     and h.season = k.season
+     and h.meeting_key is not distinct from k.meeting_key;
+
+  insert into public.rejection_history (
+    environment, run_id, recorded_at, dataset, season, meeting_key, rule,
+    rejected, records_read, aborted, rows_rejected, rules_version)
+  select r.environment, r.run_id, r.recorded_at, r.dataset, r.season, r.meeting_key,
+         r.rule, r.rejected, r.records_read, r.aborted, r.rows_rejected, r.rules_version
+    from jsonb_to_recordset(p_rows) as r(
+      environment text, run_id text, recorded_at timestamptz, dataset text,
+      season smallint, meeting_key integer, rule text, rejected integer,
+      records_read integer, aborted boolean, rows_rejected integer,
+      rules_version smallint);
+  get diagnostics inserted = row_count;
+  return inserted;
+end;
+$$;
+
+revoke all on function public.record_rejections(jsonb) from public, anon, authenticated;
+grant execute on function public.record_rejections(jsonb) to anon;
+```
+
+- **Leitura:** a publishable key (papel `anon`) lê a tabela, que só tem contagens do projeto, sem informação pessoal.
+- **Escrita:** só pela função. A `anon` não insere, altera nem apaga direto na tabela. As restrições (`check`) barram valores implausíveis, como dataset desconhecido ou contagem negativa.
+- **`environment`:** separa as cargas feitas na máquina local (`local`) das feitas no app publicado (`cloud`), para o gráfico do app não misturar testes locais.
+- **Risco aceito:** quem tiver a publishable key pode chamar a função e gravar ou substituir linhas de uma carga. O histórico não é crítico, e a chave fica só nos Secrets do Streamlit, no servidor.
+
+Para conferir depois de rodar o SQL, grave uma linha de teste e apague em seguida:
+
+```sql
+select public.record_rejections('[{
+  "environment": "local", "run_id": "teste-manual",
+  "recorded_at": "2026-11-14T19:00:00Z", "dataset": "laps",
+  "season": 2026, "meeting_key": 1298, "rule": null,
+  "rejected": 0, "records_read": 10, "aborted": false,
+  "rows_rejected": 0, "rules_version": 2
+}]'::jsonb);  -- devolve 1
+
+delete from public.rejection_history where run_id = 'teste-manual';
+```
 
 ### Última corrida (página inicial)
 
