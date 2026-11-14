@@ -107,6 +107,19 @@ def test_rejection_totals_reads_files_without_rows_rejected(tmp_path):
     assert rejection_totals(history, "laps")["rejected"].tolist() == [2]
 
 
+def test_rejection_totals_carry_rules_version_per_run():
+    history = _history(
+        ("r1", 10, 1, ["a:x"], 10),
+        ("r1", 10, 2, [], 10),  # mesma carga, duas partições
+        ("r2", 11, 1, [], 10),
+    )
+    history.loc[history["run_id"] == "r2", "rules_version"] = 2
+
+    totals = rejection_totals(history, "laps")
+
+    assert totals["rules_version"].tolist() == [1, 2]
+
+
 def test_load_rejection_history_reads_files_without_rules_version(tmp_path):
     """Arquivos gravados antes da coluna existir: versão desconhecida (nula)."""
     target = tmp_path / "rejection_history" / "laps" / "season=2023"

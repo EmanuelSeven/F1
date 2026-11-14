@@ -242,6 +242,7 @@ TOTAL_COLUMNS = [
     history.RECORDS_READ,
     "rate",
     history.ABORTED,
+    history.RULES_VERSION,
 ]
 
 
@@ -258,7 +259,8 @@ def _runs(rows: pd.DataFrame) -> pd.DataFrame:
     """Uma linha por carga: soma das partições que ela gravou.
 
     ``rows_rejected`` conta cada linha rejeitada uma vez. Em arquivos antigos,
-    sem essa coluna, usa a soma das contagens por regra.
+    sem essa coluna, usa a soma das contagens por regra. ``rules_version`` fica
+    nula em cargas gravadas antes da coluna existir.
     """
     partition = [history.RUN_ID, history.SEASON, history.MEETING_KEY]
     per_partition = rows.groupby(partition, as_index=False, dropna=False).agg(
@@ -267,6 +269,7 @@ def _runs(rows: pd.DataFrame) -> pd.DataFrame:
         aborted=(history.ABORTED, "any"),
         rows_rejected=(history.ROWS_REJECTED, "max"),
         rule_sum=(history.REJECTED, "sum"),
+        rules_version=(history.RULES_VERSION, "max"),
     )
     per_partition["rows_rejected"] = per_partition["rows_rejected"].fillna(
         per_partition["rule_sum"]
@@ -276,6 +279,7 @@ def _runs(rows: pd.DataFrame) -> pd.DataFrame:
         records_read=(history.RECORDS_READ, "sum"),
         aborted=(history.ABORTED, "any"),
         rows_rejected=("rows_rejected", "sum"),
+        rules_version=(history.RULES_VERSION, "max"),
     )
 
 
@@ -312,7 +316,7 @@ def rejection_trend(
     rows = _dataset_rows(rows, dataset, meeting_key)
     if rows.empty:
         return pd.DataFrame(columns=TREND_COLUMNS)
-    runs = _runs(rows).drop(columns="rows_rejected")
+    runs = _runs(rows).drop(columns=["rows_rejected", history.RULES_VERSION])
     violated = rows.dropna(subset=[history.RULE])
     rules = sorted(violated[history.RULE].unique())
     if not rules:
