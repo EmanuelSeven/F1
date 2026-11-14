@@ -151,6 +151,39 @@ def test_rejection_trend_chart_single_load_has_one_tick():
     assert fig.layout.xaxis.tickformatstops == ()
 
 
+def test_rejection_trend_chart_marks_rules_changes():
+    """Linha tracejada só onde a versão conhecida muda entre cargas."""
+    times = [f"2026-11-1{d} 10:00:00" for d in range(5)]
+    totals = _loads(0.0, *times).assign(
+        rules_version=pd.array([None, 1, 1, 2, 2], dtype="Int64")
+    )
+
+    fig = charts.rejection_trend_chart(totals, _loads(0.0, *times, rule="a:x"))
+
+    change = pd.Timestamp("2026-11-13 10:00:00", tz="UTC")
+    assert [pd.Timestamp(s.x0) for s in fig.layout.shapes] == [change]
+    assert [a.text for a in fig.layout.annotations] == ["regras v2"]
+    assert "Regras %{customdata[4]}" in fig.data[0].hovertemplate
+    assert list(fig.data[0].customdata[:, 4]) == [
+        "desconhecida",
+        "v1",
+        "v1",
+        "v2",
+        "v2",
+    ]
+    assert "Regras" not in fig.data[1].hovertemplate  # linhas por regra
+
+
+def test_rules_changes_ignores_unknown_versions():
+    """Cargas antigas (versão nula) não viram mudança de regra."""
+    totals = _loads(0.0, "2026-11-10", "2026-11-11", "2026-11-12").assign(
+        rules_version=pd.array([None, 2, None], dtype="Int64")
+    )
+
+    assert charts.rules_changes(totals).empty
+    assert charts.rules_changes(totals.drop(columns="rules_version")).empty
+
+
 def test_rejection_trend_chart_only_total_without_rejections():
     totals = pd.DataFrame(
         {
