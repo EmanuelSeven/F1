@@ -6,6 +6,7 @@ from f1.domain.endpoints import Endpoint
 from f1.domain.models import MeetingRef, Partition
 from f1.pipelines.common import RunContext
 from f1.pipelines.meeting import MeetingNotFoundError, fetch_meeting, run_meeting
+from f1.quality.schemas import RULES_VERSION
 from f1.quality.validation import DataQualityError
 from tests.conftest import FakeOpenF1Source
 
@@ -90,6 +91,7 @@ def test_run_meeting_quarantines_invalid_rows(openf1_data, stores, tmp_path):
     assert pd.isna(by_run.loc["run-clean", "rule"])
     assert by_run.loc["run-clean", ["rejected", "records_read"]].tolist() == [0, 8]
     assert not history["aborted"].any()
+    assert (history["rules_version"] == RULES_VERSION).all()
 
 
 def test_run_meeting_fails_above_rejection_rate(openf1_data, stores, ctx, tmp_path):

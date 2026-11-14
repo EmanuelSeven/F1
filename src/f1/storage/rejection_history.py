@@ -29,6 +29,9 @@ ABORTED = "aborted"
 # Linhas rejeitadas na carga (cada linha conta uma vez, mesmo violando várias
 # regras). Ausente nos arquivos gravados antes desta coluna existir.
 ROWS_REJECTED = "rows_rejected"
+# Versão das regras de validação usadas na carga (``RULES_VERSION``). Ausente
+# nos arquivos gravados antes desta coluna existir.
+RULES_VERSION = "rules_version"
 
 COLUMNS: dict[str, str] = {
     RUN_ID: "string",
@@ -41,6 +44,7 @@ COLUMNS: dict[str, str] = {
     RECORDS_READ: "Int64",
     ABORTED: "boolean",
     ROWS_REJECTED: "Int64",
+    RULES_VERSION: "Int64",
 }
 
 
@@ -69,6 +73,7 @@ def rejection_rows(  # noqa: PLR0913 - uma linha do histórico tem estes campos
     rejected: pd.DataFrame,
     records_read: int,
     aborted: bool,
+    rules_version: int,
 ) -> pd.DataFrame:
     """Uma linha por regra violada na carga.
 
@@ -91,6 +96,7 @@ def rejection_rows(  # noqa: PLR0913 - uma linha do histórico tem estes campos
             RECORDS_READ: [records_read] * size,
             ABORTED: [aborted] * size,
             ROWS_REJECTED: [len(rejected)] * size,
+            RULES_VERSION: [rules_version] * size,
         }
     )
     return frame.astype(COLUMNS)
