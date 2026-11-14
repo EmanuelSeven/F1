@@ -254,19 +254,25 @@ def _rules_label(version: int | None) -> str:
     return "desconhecida" if version is None or pd.isna(version) else f"v{version}"
 
 
-def _rate_trace(rows: pd.DataFrame, name: str, line: dict[str, Any]) -> go.Scatter:
+def _rate_trace(
+    rows: pd.DataFrame, name: str, line: dict[str, Any], *, connect: bool = True
+) -> go.Scatter:
     symbols = ["x" if a else "circle" for a in rows["aborted"]]
     custom = rows[["run_id", "rejected", "records_read"]].assign(
         status=["abortada" if a else "publicada" for a in rows["aborted"]]
     )
-    rules_line = ""
-    if "rules_version" in rows:  # só os totais trazem a versão das regras
+    extra_lines = ""
+    # Só os totais trazem a versão das regras e os meetings da carga.
+    if "rules_version" in rows:
         custom["rules"] = [_rules_label(v) for v in rows["rules_version"]]
-        rules_line = "Regras %{customdata[4]}<br>"
+        extra_lines += f"Regras %{{customdata[{len(custom.columns) - 1}]}}<br>"
+    if "meetings" in rows:
+        custom["meetings"] = rows["meetings"]
+        extra_lines += f"Meetings %{{customdata[{len(custom.columns) - 1}]}}<br>"
     return go.Scatter(
         x=rows["recorded_at"],
         y=rows["rate"],
-        mode="lines+markers",
+        mode="lines+markers" if connect else "markers",
         name=name,
         marker={"symbol": symbols, "size": 8},
         line=line,
@@ -275,7 +281,7 @@ def _rate_trace(rows: pd.DataFrame, name: str, line: dict[str, Any]) -> go.Scatt
             f"<b>{name}</b><br>"
             "%{y:.1%} (%{customdata[1]} de %{customdata[2]} registros)<br>"
             "Carga %{customdata[3]} · run_id %{customdata[0]}<br>"
-            f"{rules_line}"
+            f"{extra_lines}"
             "%{x|%d/%m/%Y %H:%M} UTC<extra></extra>"
         ),
     )
@@ -325,18 +331,21 @@ def _mark_rules_changes(fig: go.Figure, totals: pd.DataFrame) -> None:
         )
 
 
-def rejection_trend_chart(totals: pd.DataFrame, trend: pd.DataFrame) -> go.Figure:
+def rejection_trend_chart(
+    totals: pd.DataFrame, trend: pd.DataFrame, *, connect: bool = True
+) -> go.Figure:
     """Taxa de rejeição por carga: linha "Total" e uma linha por regra violada.
 
     A linha total aparece desde a primeira carga, mesmo sem rejeições (0%).
     Cargas abortadas (taxa acima do limite) aparecem com marcador ``x``.
     Uma linha tracejada marca as cargas em que a versão das regras mudou.
+    Com ``connect=False`` (todos os meetings), só pontos: cargas que
+    recarregaram meetings diferentes não formam uma tendência.
     """
-    fig = go.Figure(
-        _rate_trace(totals, TOTAL_LABEL, {"width": 3, "color": TOTAL_COLOUR})
-    )
+    total_line = {"width": 3, "color": TOTAL_COLOUR}
+    fig = go.Figure(_rate_trace(totals, TOTAL_LABEL, total_line, connect=connect))
     for rule, rows in trend.groupby("rule", sort=True):
-        fig.add_trace(_rate_trace(rows, str(rule), {"width": 2}))
+        fig.add_trace(_rate_trace(rows, str(rule), {"width": 2}, connect=connect))
     highest = max(
         (float(df["rate"].max()) for df in (totals, trend) if not df.empty),
         default=0.0,
