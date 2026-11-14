@@ -184,6 +184,23 @@ def test_rules_changes_ignores_unknown_versions():
     assert charts.rules_changes(totals.drop(columns="rules_version")).empty
 
 
+def test_rejection_trend_chart_all_meetings_only_points():
+    """Todos os meetings: só pontos e os meetings da carga na dica."""
+    times = ("2026-11-09 10:00", "2026-11-11 00:00")
+    totals = _loads(0.004, *times).assign(meetings=["1298", "1293"])
+
+    linked = charts.rejection_trend_chart(totals, _loads(0.004, *times, rule="a:x"))
+    points = charts.rejection_trend_chart(
+        totals, _loads(0.004, *times, rule="a:x"), connect=False
+    )
+
+    assert {t.mode for t in linked.data} == {"lines+markers"}
+    assert {t.mode for t in points.data} == {"markers"}
+    total = points.data[0]
+    assert "Meetings %{customdata[4]}" in total.hovertemplate
+    assert list(total.customdata[:, 4]) == ["1298", "1293"]
+
+
 def test_rejection_trend_chart_only_total_without_rejections():
     totals = pd.DataFrame(
         {

@@ -93,8 +93,14 @@ def render_rejection_history(data_dir: Path) -> None:
     trend = rejection_trend(history, dataset, meeting_key)
     if trend.empty:
         st.success(f"Nenhuma rejeição em {len(totals)} carga(s) de `{dataset}`.")
+    all_meetings = meeting_key is None and len(options) > 1
+    if all_meetings:
+        st.caption(
+            "Com todos os meetings, cada ponto é uma carga e pode cobrir meetings "
+            "diferentes (veja na dica). Filtre um meeting para ver a tendência."
+        )
     st.plotly_chart(
-        charts.rejection_trend_chart(totals, trend),
+        charts.rejection_trend_chart(totals, trend, connect=not all_meetings),
         config=PLOT_CONFIG,
         key=f"rejections_{dataset}_{choice}",
         alt=f"Taxa de rejeição ao longo das cargas de {dataset}, total e por regra",
