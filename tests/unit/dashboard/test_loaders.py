@@ -14,6 +14,7 @@ from f1.dashboard.loaders import (
     load_rejection_history,
     load_season_data,
     meetings_label,
+    merge_histories,
     race_details_loaded,
     read_dataset,
     read_lineage,
@@ -25,6 +26,7 @@ from f1.domain.endpoints import Endpoint
 from f1.domain.models import Partition
 from f1.storage.parquet_writer import ParquetDatasetStore
 from f1.storage.rejection_history import COLUMNS, rejection_rows
+from f1.storage.rejection_history import empty_history as history_empty
 
 
 def _history(*loads: tuple[str, int, int, list[str], int]) -> pd.DataFrame:
@@ -136,6 +138,17 @@ def test_rejection_totals_list_meetings_of_each_run():
 def test_meetings_label_shortens_long_lists_and_season_datasets():
     assert meetings_label(pd.Series([5, 1, 4, 2, 3])) == "1, 2, 3 (+2)"
     assert meetings_label(pd.Series([None], dtype="Int64")) == "temporada"
+
+
+def test_merge_histories_keeps_each_row_once():
+    remote = _history(("r1", 10, 1, ["a:x"], 10), ("r2", 11, 1, [], 10))
+    local = _history(("r1", 10, 1, ["a:x"], 10), ("r0", 9, 2, [], 5))  # r0 só local
+
+    merged = merge_histories(remote, local)
+
+    assert sorted(merged["run_id"]) == ["r0", "r1", "r2"]
+    assert merged.dtypes.to_dict() == history_empty().dtypes.to_dict()
+    assert merge_histories(history_empty(), history_empty()).empty
 
 
 def test_load_rejection_history_reads_files_without_rules_version(tmp_path):

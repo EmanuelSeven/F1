@@ -31,6 +31,7 @@ from f1.dashboard.loaders import (
     load_race_details,
     load_rejection_history,
     load_season_data,
+    merge_histories,
     read_dataset,
     season_is_loaded,
 )
@@ -45,6 +46,7 @@ from f1.processing.last_race import default_season, has_completed_race
 from f1.processing.normalize import normalize
 from f1.processing.standings import finished_kinds, result_kinds
 from f1.quality.validation import DataQualityError
+from f1.storage.supabase_history import fetch_history
 
 CACHE_TTL_SECONDS = 300
 LATEST_TTL_SECONDS = 600  # página Última corrida: cache curto
@@ -82,7 +84,18 @@ def lake_summary(data_dir: Path) -> PlatformSummary:
 
 @st.cache_data(ttl=SUMMARY_TTL_SECONDS, show_spinner=False)
 def rejection_history(data_dir: Path) -> pd.DataFrame:
-    return load_rejection_history(data_dir)
+    """Histórico do disco unido ao do Supabase (só o ambiente atual).
+
+    Sem ``F1_SUPABASE_*`` ou com o Supabase fora do ar, só o disco.
+    """
+    local = load_rejection_history(data_dir)
+    settings = get_settings()
+    if not settings.supabase_url or not settings.supabase_key:
+        return local
+    remote = fetch_history(
+        settings.supabase_url, settings.supabase_key, settings.history_environment
+    )
+    return local if remote is None else merge_histories(remote, local)
 
 
 def clear_lake_caches() -> None:

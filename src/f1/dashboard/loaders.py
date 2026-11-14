@@ -226,6 +226,29 @@ def load_rejection_history(data_dir: Path) -> pd.DataFrame:
     return frame.astype(history.COLUMNS)
 
 
+HISTORY_KEY = [
+    history.RUN_ID,
+    history.DATASET,
+    history.SEASON,
+    history.MEETING_KEY,
+    history.RULE,
+]
+
+
+def merge_histories(remote: pd.DataFrame, local: pd.DataFrame) -> pd.DataFrame:
+    """Une o histórico do Supabase ao do disco, sem repetir linhas.
+
+    Cada linha é identificada por carga, partição e regra. As cargas gravadas
+    nos dois lugares aparecem uma vez; as que só existem num deles também
+    entram (ex.: arquivos locais de antes do Supabase).
+    """
+    frames = [f for f in (remote, local) if not f.empty]
+    if not frames:
+        return history.empty_history()
+    merged = pd.concat(frames, ignore_index=True).astype(history.COLUMNS)
+    return merged.drop_duplicates(subset=HISTORY_KEY, ignore_index=True)
+
+
 TREND_COLUMNS = [
     history.RUN_ID,
     history.RECORDED_AT,

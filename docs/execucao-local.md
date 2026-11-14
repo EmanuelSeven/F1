@@ -36,6 +36,8 @@ Sem `F1_SUPABASE_URL` ou `F1_SUPABASE_KEY`, o contador de acessos do dashboard f
 
 Com as duas preenchidas, cada carga também envia o histórico de rejeições à função `record_rejections` do Supabase, marcado com `F1_HISTORY_ENVIRONMENT`. O arquivo em `data/rejection_history` continua sendo gravado; se o Supabase falhar, a carga registra o aviso `rejection_history_remote_failed` e segue normal. No Streamlit Community Cloud, adicione `F1_HISTORY_ENVIRONMENT = "cloud"` em **Settings → Secrets**.
 
+A página **Data Lake** mostra o histórico do disco unido ao do Supabase, só do ambiente atual (`F1_HISTORY_ENVIRONMENT`), sem repetir cargas gravadas nos dois. Assim o gráfico do app publicado mantém as cargas anteriores a um reinício. Se a leitura do Supabase falhar, a página registra o aviso `rejection_history_remote_read_failed` e mostra só o disco.
+
 ## Comandos
 
 ```bash
