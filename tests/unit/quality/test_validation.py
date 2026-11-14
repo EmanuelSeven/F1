@@ -67,6 +67,25 @@ def test_validate_schema_violation_raises_immediately():
         validate(_laps().drop(columns=["st_speed"]), SCHEMA, max_rejection_rate=1.0)
 
 
+@pytest.mark.parametrize(
+    ("pressure", "valid"),
+    [
+        (781.4, True),  # Cidade do México, ~2.240 m (GP 2026)
+        (930.0, True),  # Interlagos, ~760 m
+        (1013.0, True),  # nível do mar
+        (650.0, False),  # abaixo de qualquer circuito
+        (1200.0, False),
+    ],
+)
+def test_weather_pressure_accepts_altitude_circuits(pressure, valid):
+    weather = normalize(Endpoint.WEATHER, load_fixture(Endpoint.WEATHER))
+    weather["pressure"] = pressure
+
+    result = validate(weather, schema_for(Endpoint.WEATHER), max_rejection_rate=1.0)
+
+    assert result.rejected.empty is valid
+
+
 def test_validation_result_empty_rate():
     empty = pd.DataFrame()
     assert ValidationResult(empty, empty).rejection_rate == 0.0

@@ -17,12 +17,18 @@ MAX_LAP_SECONDS = 4 * 60 * 60
 # Nos testes de pré-temporada um carro passa de 150 voltas por dia; o teto só
 # barra valores absurdos (corridas têm no máximo ~80 voltas).
 MAX_LAP_NUMBER = 300
+# Pressão atmosférica (hPa). Na Cidade do México (~2.240 m) fica em ~780 hPa e
+# em Interlagos (~760 m) em ~930 hPa: o piso cobre os circuitos de altitude.
+MIN_PRESSURE_HPA = 700
+MAX_PRESSURE_HPA = 1100
 
 # Versão das regras de validação, gravada no histórico de rejeições de cada
 # carga. Suba este número sempre que mudar uma regra (limite, tipo, check):
 # assim uma queda nas rejeições causada por ajuste de regra não parece melhora
-# da fonte. Versão 2: voltas com bandeira vermelha e voltas dos testes.
-RULES_VERSION = 2
+# da fonte.
+# - 2: voltas com bandeira vermelha e voltas dos testes.
+# - 3: pressão de circuitos em altitude (piso de 800 para 700 hPa).
+RULES_VERSION = 3
 
 
 def _int(*checks: pa.Check) -> pa.Column:
@@ -214,7 +220,7 @@ SCHEMAS: Mapping[Endpoint, pa.DataFrameSchema] = MappingProxyType(
                 "air_temperature": _opt("Float64", _range(-10, 60)),
                 "track_temperature": _opt("Float64", _range(-10, 80)),
                 "humidity": _opt("Float64", _range(0, 100)),
-                "pressure": _opt("Float64", _range(800, 1100)),
+                "pressure": _opt("Float64", _range(MIN_PRESSURE_HPA, MAX_PRESSURE_HPA)),
                 "wind_speed": _opt("Float64", _range(0, 50)),
                 "wind_direction": _opt("Int64", _range(0, 360)),
                 "rainfall": _opt("boolean"),
