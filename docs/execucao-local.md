@@ -30,8 +30,11 @@ Copie `.env.example` para `.env` e ajuste se precisar. Todas usam o prefixo `F1_
 | `F1_MAX_REJECTION_RATE` | `0.05` | Taxa máxima de rejeição antes de falhar |
 | `F1_SUPABASE_URL` | vazio | URL do projeto Supabase do contador de acessos (ex.: `https://xyz.supabase.co`) |
 | `F1_SUPABASE_KEY` | vazio | Publishable key do projeto Supabase (`sb_publishable_...`) |
+| `F1_HISTORY_ENVIRONMENT` | `local` | Ambiente gravado no histórico de rejeições do Supabase: `local` ou `cloud` (só no app publicado) |
 
 Sem `F1_SUPABASE_URL` ou `F1_SUPABASE_KEY`, o contador de acessos do dashboard fica desligado (veja [Contador de acessos](#contador-de-acessos)).
+
+Com as duas preenchidas, cada carga também envia o histórico de rejeições à função `record_rejections` do Supabase, marcado com `F1_HISTORY_ENVIRONMENT`. O arquivo em `data/rejection_history` continua sendo gravado; se o Supabase falhar, a carga registra o aviso `rejection_history_remote_failed` e segue normal. No Streamlit Community Cloud, adicione `F1_HISTORY_ENVIRONMENT = "cloud"` em **Settings → Secrets**.
 
 ## Comandos
 

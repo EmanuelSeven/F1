@@ -11,6 +11,13 @@ from f1.domain.models import Filter, Operator, Record
 FIXTURES_DIR = Path(__file__).parent / "fixtures" / "openf1"
 
 
+@pytest.fixture(autouse=True)
+def _no_supabase(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Nenhum teste grava no Supabase real, mesmo com F1_SUPABASE_* no ``.env``."""
+    monkeypatch.setenv("F1_SUPABASE_URL", "")
+    monkeypatch.setenv("F1_SUPABASE_KEY", "")
+
+
 def load_fixture(endpoint: Endpoint) -> list[Record]:
     path = FIXTURES_DIR / f"{endpoint.value}.json"
     return json.loads(path.read_text(encoding="utf-8"))
