@@ -23,6 +23,9 @@ logger = logging.getLogger(__name__)
 
 TIMEOUT_SECONDS = 10.0
 RPC_PATH = "/rest/v1/rpc/record_rejections"
+TABLE_PATH = "/rest/v1/rejection_history"
+PAGE_SIZE = 1000  # limite padrão de linhas por resposta da API REST
+MAX_PAGES = 100  # trava de segurança: até 100 mil linhas
 
 
 def history_payload(frame: pd.DataFrame, environment: str) -> list[dict[str, Any]]:
@@ -65,6 +68,58 @@ class SupabaseHistorySink:
             logger.warning("rejection_history_remote_failed", extra={"error": str(exc)})
             return False
         return True
+
+
+def fetch_history(
+    url: str,
+    key: str,
+    environment: str,
+    client: httpx.Client | None = None,
+) -> pd.DataFrame | None:
+    """Histórico do Supabase de um ambiente, com as colunas tipadas.
+
+    Lê em páginas de ``PAGE_SIZE`` linhas. Retorna ``None`` (e registra aviso)
+    em qualquer erro: quem chama segue só com o histórico local.
+    """
+    endpoint = url.rstrip("/") + TABLE_PATH
+    params = {
+        "select": ",".join(history.COLUMNS),
+        "environment": f"eq.{environment}",
+        "order": "id",
+        "limit": str(PAGE_SIZE),
+    }
+    rows: list[dict[str, Any]] = []
+    try:
+        own = client is None
+        http = client or httpx.Client(timeout=TIMEOUT_SECONDS)
+        try:
+            for page in range(MAX_PAGES):
+                response = http.get(
+                    endpoint,
+                    headers={"apikey": key},
+                    params=params | {"offset": str(page * PAGE_SIZE)},
+                )
+                response.raise_for_status()
+                batch = response.json()
+                if not isinstance(batch, list):
+                    raise ValueError(f"resposta inesperada: {type(batch).__name__}")
+                rows.extend(batch)
+                if len(batch) < PAGE_SIZE:
+                    break
+        finally:
+            if own:
+                http.close()
+        frame = pd.DataFrame(rows, columns=list(history.COLUMNS))
+        # O Postgres omite os milésimos quando são zero ("...19:28:19+00:00").
+        frame[history.RECORDED_AT] = pd.to_datetime(
+            frame[history.RECORDED_AT], utc=True, format="ISO8601"
+        )
+        return frame.astype(history.COLUMNS)
+    except (httpx.HTTPError, ValueError, TypeError) as exc:
+        logger.warning(
+            "rejection_history_remote_read_failed", extra={"error": str(exc)}
+        )
+        return None
 
 
 class MirroredHistoryStore:
