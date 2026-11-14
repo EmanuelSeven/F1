@@ -17,6 +17,7 @@ from f1.storage.supabase_history import (
     RPC_PATH,
     MirroredHistoryStore,
     SupabaseHistorySink,
+    fetch_history,
     history_payload,
 )
 
@@ -122,6 +123,55 @@ def test_build_stores_mirrors_only_with_supabase_settings(tmp_path):
 
     assert isinstance(local.rejections, RejectionHistoryStore)
     assert isinstance(mirrored.rejections, MirroredHistoryStore)
+
+
+def _remote_row(run_id: str, **extra: object) -> dict[str, object]:
+    return history_payload(_rows([]).assign(run_id=run_id), "cloud")[0] | extra
+
+
+def test_fetch_history_reads_all_pages_of_one_environment(monkeypatch):
+    monkeypatch.setattr(supabase_history, "PAGE_SIZE", 2)
+    pages = [
+        # Formatos reais do Postgres: com e sem milésimos.
+        [
+            _remote_row("r1", recorded_at="2026-11-14T19:28:12.85+00:00"),
+            _remote_row("r2", recorded_at="2026-11-14T19:28:19+00:00"),
+        ],
+        [_remote_row("r3", rule="a:x", rejected=3, rows_rejected=3)],
+    ]
+    seen: list[httpx.Request] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        seen.append(request)
+        return httpx.Response(200, json=pages[len(seen) - 1])
+
+    client = httpx.Client(transport=httpx.MockTransport(handler))
+    frame = fetch_history(URL, KEY, "cloud", client)
+
+    assert frame is not None
+    assert frame["run_id"].tolist() == ["r1", "r2", "r3"]
+    assert frame["rejected"].tolist() == [0, 0, 3]
+    assert pd.isna(frame.loc[0, "rule"])
+    assert str(frame["recorded_at"].dtype) == "datetime64[ns, UTC]"
+    assert [r.url.params["offset"] for r in seen] == ["0", "2"]
+    assert all(r.url.params["environment"] == "eq.cloud" for r in seen)
+    assert seen[0].headers["apikey"] == KEY
+    assert "environment" not in seen[0].url.params["select"]
+
+
+@pytest.mark.parametrize(
+    "reply",
+    [
+        lambda _r: httpx.Response(401, json={"message": "Invalid API key"}),
+        lambda _r: httpx.Response(200, json={"message": "não é lista"}),
+        lambda _r: (_ for _ in ()).throw(httpx.ConnectError("sem rede")),
+    ],
+)
+def test_fetch_history_failure_returns_none(reply, caplog):
+    client = httpx.Client(transport=httpx.MockTransport(reply))
+    with caplog.at_level(logging.WARNING, logger=supabase_history.__name__):
+        assert fetch_history(URL, KEY, "cloud", client) is None
+    assert "rejection_history_remote_read_failed" in caplog.text
 
 
 def test_history_environment_defaults_to_local(monkeypatch):
