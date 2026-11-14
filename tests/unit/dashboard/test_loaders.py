@@ -13,6 +13,7 @@ from f1.dashboard.loaders import (
     load_race_details,
     load_rejection_history,
     load_season_data,
+    meetings_label,
     race_details_loaded,
     read_dataset,
     read_lineage,
@@ -118,6 +119,23 @@ def test_rejection_totals_carry_rules_version_per_run():
     totals = rejection_totals(history, "laps")
 
     assert totals["rules_version"].tolist() == [1, 2]
+
+
+def test_rejection_totals_list_meetings_of_each_run():
+    history = _history(
+        ("r1", 10, 2, ["a:x"], 10),
+        ("r1", 10, 1, [], 10),  # mesma carga, dois meetings
+        ("r2", 11, 1, [], 10),
+    )
+
+    totals = rejection_totals(history, "laps")
+
+    assert totals["meetings"].tolist() == ["1, 2", "1"]
+
+
+def test_meetings_label_shortens_long_lists_and_season_datasets():
+    assert meetings_label(pd.Series([5, 1, 4, 2, 3])) == "1, 2, 3 (+2)"
+    assert meetings_label(pd.Series([None], dtype="Int64")) == "temporada"
 
 
 def test_load_rejection_history_reads_files_without_rules_version(tmp_path):

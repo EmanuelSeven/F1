@@ -243,6 +243,7 @@ TOTAL_COLUMNS = [
     "rate",
     history.ABORTED,
     history.RULES_VERSION,
+    "meetings",
 ]
 
 
@@ -280,7 +281,24 @@ def _runs(rows: pd.DataFrame) -> pd.DataFrame:
         aborted=(history.ABORTED, "any"),
         rows_rejected=("rows_rejected", "sum"),
         rules_version=(history.RULES_VERSION, "max"),
+        meetings=(history.MEETING_KEY, meetings_label),
     )
+
+
+MAX_MEETINGS_SHOWN = 3
+
+
+def meetings_label(keys: pd.Series) -> str:
+    """Meetings recarregados numa carga, para a dica do gráfico.
+
+    Datasets da temporada (sem ``meeting_key``) aparecem como "temporada".
+    """
+    known = sorted(int(k) for k in keys.dropna().unique())
+    if not known:
+        return "temporada"
+    shown = ", ".join(str(k) for k in known[:MAX_MEETINGS_SHOWN])
+    extra = len(known) - MAX_MEETINGS_SHOWN
+    return f"{shown} (+{extra})" if extra > 0 else shown
 
 
 def _rate(rejected: pd.Series, read: pd.Series) -> pd.Series:
@@ -316,7 +334,9 @@ def rejection_trend(
     rows = _dataset_rows(rows, dataset, meeting_key)
     if rows.empty:
         return pd.DataFrame(columns=TREND_COLUMNS)
-    runs = _runs(rows).drop(columns=["rows_rejected", history.RULES_VERSION])
+    runs = _runs(rows).drop(
+        columns=["rows_rejected", history.RULES_VERSION, "meetings"]
+    )
     violated = rows.dropna(subset=[history.RULE])
     rules = sorted(violated[history.RULE].unique())
     if not rules:
