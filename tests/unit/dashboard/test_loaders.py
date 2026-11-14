@@ -37,6 +37,7 @@ def _history(*loads: tuple[str, int, int, list[str], int]) -> pd.DataFrame:
             rejected=pd.DataFrame({"_reject_reason": reasons}),
             records_read=read,
             aborted=False,
+            rules_version=1,
         )
         for run_id, hour, meeting_key, reasons, read in loads
     ]
@@ -104,6 +105,22 @@ def test_rejection_totals_reads_files_without_rows_rejected(tmp_path):
 
     assert history["rows_rejected"].isna().all()
     assert rejection_totals(history, "laps")["rejected"].tolist() == [2]
+
+
+def test_load_rejection_history_reads_files_without_rules_version(tmp_path):
+    """Arquivos gravados antes da coluna existir: versão desconhecida (nula)."""
+    target = tmp_path / "rejection_history" / "laps" / "season=2023"
+    target.mkdir(parents=True)
+    old = _history(("r1", 10, 1, ["a:x"], 10)).drop(columns="rules_version")
+    old.to_parquet(target / "run_id=r1.parquet", index=False)
+    _history(("r2", 11, 1, [], 10)).to_parquet(
+        target / "run_id=r2.parquet", index=False
+    )
+
+    history = load_rejection_history(tmp_path).set_index("run_id")
+
+    assert pd.isna(history.loc["r1", "rules_version"])
+    assert history.loc["r2", "rules_version"] == 1
 
 
 def test_platform_summary_counts_layers_records_and_rejections(populated_lake):

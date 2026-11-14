@@ -23,6 +23,7 @@ def _rows(run_id: str, reasons: list[str], records_read: int = 10) -> pd.DataFra
         rejected=pd.DataFrame({"_reject_reason": reasons}),
         records_read=records_read,
         aborted=False,
+        rules_version=7,
     )
 
 
@@ -45,6 +46,12 @@ def test_rejection_rows_records_clean_load():
     [row] = _rows("r1", []).to_dict("records")
     assert pd.isna(row["rule"])
     assert (row["rejected"], row["records_read"]) == (0, 10)
+
+
+def test_rejection_rows_record_rules_version():
+    """Toda linha da carga leva a versão das regras, com ou sem rejeição."""
+    assert _rows("r1", ["a:x; b:y"])["rules_version"].tolist() == [7, 7]
+    assert _rows("r2", [])["rules_version"].tolist() == [7]
 
 
 def test_append_keeps_previous_runs(tmp_path):

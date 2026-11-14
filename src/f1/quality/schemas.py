@@ -18,6 +18,12 @@ MAX_LAP_SECONDS = 4 * 60 * 60
 # barra valores absurdos (corridas têm no máximo ~80 voltas).
 MAX_LAP_NUMBER = 300
 
+# Versão das regras de validação, gravada no histórico de rejeições de cada
+# carga. Suba este número sempre que mudar uma regra (limite, tipo, check):
+# assim uma queda nas rejeições causada por ajuste de regra não parece melhora
+# da fonte. Versão 2: voltas com bandeira vermelha e voltas dos testes.
+RULES_VERSION = 2
+
 
 def _int(*checks: pa.Check) -> pa.Column:
     return pa.Column("Int64", checks=list(checks), nullable=False)
