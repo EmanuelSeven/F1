@@ -230,6 +230,22 @@ DATE_TICK_STOPS: list[dict[str, Any]] = [
 ]
 
 
+def _load_axis(totals: pd.DataFrame) -> dict[str, Any]:
+    """Eixo X das cargas.
+
+    Com uma única carga, o Plotly estica o eixo para frações de segundo e
+    repete o mesmo horário em todas as marcas: mostra só a marca da carga.
+    """
+    axis: dict[str, Any] = {"title": "Carga (UTC)"}
+    loads = totals["recorded_at"].drop_duplicates()
+    if len(loads) == 1:
+        moment = loads.iloc[0]
+        axis.update(tickvals=[moment], ticktext=[moment.strftime("%d/%m %H:%M:%S")])
+    else:
+        axis["tickformatstops"] = DATE_TICK_STOPS
+    return axis
+
+
 def _rate_trace(rows: pd.DataFrame, name: str, line: dict[str, Any]) -> go.Scatter:
     symbols = ["x" if a else "circle" for a in rows["aborted"]]
     return go.Scatter(
@@ -270,7 +286,7 @@ def rejection_trend_chart(totals: pd.DataFrame, trend: pd.DataFrame) -> go.Figur
     fig.update_layout(
         **base_layout(
             380,
-            xaxis={"title": "Carga (UTC)", "tickformatstops": DATE_TICK_STOPS},
+            xaxis=_load_axis(totals),
             yaxis={
                 "title": "Taxa de rejeição",
                 "tickformat": ".0%",
