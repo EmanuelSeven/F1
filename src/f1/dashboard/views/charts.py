@@ -246,8 +246,23 @@ def _load_axis(totals: pd.DataFrame) -> dict[str, Any]:
     return axis
 
 
+RULES_CHANGE_COLOUR = "#F5C542"
+
+
+def _rules_label(version: int | None) -> str:
+    """Versão das regras para exibição (nula em cargas antigas)."""
+    return "desconhecida" if version is None or pd.isna(version) else f"v{version}"
+
+
 def _rate_trace(rows: pd.DataFrame, name: str, line: dict[str, Any]) -> go.Scatter:
     symbols = ["x" if a else "circle" for a in rows["aborted"]]
+    custom = rows[["run_id", "rejected", "records_read"]].assign(
+        status=["abortada" if a else "publicada" for a in rows["aborted"]]
+    )
+    rules_line = ""
+    if "rules_version" in rows:  # só os totais trazem a versão das regras
+        custom["rules"] = [_rules_label(v) for v in rows["rules_version"]]
+        rules_line = "Regras %{customdata[4]}<br>"
     return go.Scatter(
         x=rows["recorded_at"],
         y=rows["rate"],
@@ -255,16 +270,59 @@ def _rate_trace(rows: pd.DataFrame, name: str, line: dict[str, Any]) -> go.Scatt
         name=name,
         marker={"symbol": symbols, "size": 8},
         line=line,
-        customdata=rows[["run_id", "rejected", "records_read"]]
-        .assign(status=["abortada" if a else "publicada" for a in rows["aborted"]])
-        .to_numpy(),
+        customdata=custom.to_numpy(),
         hovertemplate=(
             f"<b>{name}</b><br>"
             "%{y:.1%} (%{customdata[1]} de %{customdata[2]} registros)<br>"
             "Carga %{customdata[3]} · run_id %{customdata[0]}<br>"
+            f"{rules_line}"
             "%{x|%d/%m/%Y %H:%M} UTC<extra></extra>"
         ),
     )
+
+
+def rules_changes(totals: pd.DataFrame) -> pd.DataFrame:
+    """Cargas em que a versão das regras mudou em relação à carga anterior.
+
+    Só compara cargas com versão conhecida: entre cargas gravadas antes da
+    coluna existir não dá para saber quando a regra mudou.
+    """
+    if "rules_version" not in totals:
+        return totals.iloc[0:0].assign(rules_version=pd.Series(dtype="Int64"))
+    known = totals.dropna(subset=["rules_version"])
+    version = known["rules_version"].astype("int64")
+    previous = version.shift()  # a primeira carga conhecida não tem anterior
+    return known[previous.notna() & version.ne(previous)]
+
+
+def _mark_rules_changes(fig: go.Figure, totals: pd.DataFrame) -> None:
+    """Linha vertical tracejada onde as regras mudaram: uma queda ali pode ser
+    efeito do ajuste da regra, não melhora dos dados."""
+    changes = rules_changes(totals)
+    for moment, version in zip(
+        changes["recorded_at"], changes["rules_version"], strict=True
+    ):
+        fig.add_shape(
+            type="line",
+            xref="x",
+            yref="paper",
+            x0=moment,
+            x1=moment,
+            y0=0,
+            y1=1,
+            line={"color": RULES_CHANGE_COLOUR, "width": 1, "dash": "dash"},
+        )
+        fig.add_annotation(
+            x=moment,
+            xref="x",
+            y=1,
+            yref="paper",
+            text=f"regras v{version}",
+            showarrow=False,
+            xanchor="left",
+            yanchor="top",
+            font={"color": RULES_CHANGE_COLOUR, "size": 11},
+        )
 
 
 def rejection_trend_chart(totals: pd.DataFrame, trend: pd.DataFrame) -> go.Figure:
@@ -272,6 +330,7 @@ def rejection_trend_chart(totals: pd.DataFrame, trend: pd.DataFrame) -> go.Figur
 
     A linha total aparece desde a primeira carga, mesmo sem rejeições (0%).
     Cargas abortadas (taxa acima do limite) aparecem com marcador ``x``.
+    Uma linha tracejada marca as cargas em que a versão das regras mudou.
     """
     fig = go.Figure(
         _rate_trace(totals, TOTAL_LABEL, {"width": 3, "color": TOTAL_COLOUR})
@@ -299,6 +358,7 @@ def rejection_trend_chart(totals: pd.DataFrame, trend: pd.DataFrame) -> go.Figur
             margin={"l": 8, "r": 24, "t": 36, "b": 8},
         )
     )
+    _mark_rules_changes(fig, totals)
     return fig
 
 
