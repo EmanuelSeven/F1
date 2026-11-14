@@ -11,7 +11,7 @@ from f1.domain.models import Partition, Record
 from f1.domain.ports import AppendStore, DatasetStore, RawStore
 from f1.processing.lineage import add_lineage_columns
 from f1.processing.normalize import normalize
-from f1.quality.schemas import schema_for
+from f1.quality.schemas import RULES_VERSION, schema_for
 from f1.quality.validation import DataQualityError, ValidationResult, validate
 from f1.storage.rejection_history import rejection_rows
 from f1.utils.metrics import PipelineMetrics, track_pipeline
@@ -105,5 +105,6 @@ def _record_rejections(  # noqa: PLR0913
         rejected=result.rejected,
         records_read=result.total,
         aborted=aborted,
+        rules_version=RULES_VERSION,
     )
     stores.rejections.append(dataset, partition, rows)
